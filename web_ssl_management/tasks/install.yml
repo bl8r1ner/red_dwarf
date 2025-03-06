@@ -34,3 +34,8 @@
 
 - name: Check HTTP response
   include_tasks: check_response.yml
+  when: web_server == "nginx"
+
+- name: Check HTTP response
+  include_tasks: check_response_httpd.yml
+  when: web_server == "httpd"

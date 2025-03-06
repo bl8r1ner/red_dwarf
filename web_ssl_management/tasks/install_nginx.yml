@@ -39,9 +39,3 @@
     dest: /etc/nginx/conf.d/default.conf
     backup: true
   notify: Restart nginx server
-
-- name: Test Nginx configuration
-  command: nginx -t
-  register: nginx_test
-  failed_when: nginx_test.rc != 0
-  changed_when: false

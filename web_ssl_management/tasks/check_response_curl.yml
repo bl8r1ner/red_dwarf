@@ -1,0 +1,12 @@
+---
+# General simple validation. 
+# Use this in case of default httpd landing page (response 403 on httpd)
+- name: Verify server responds with content from {{ ansible_fqdn }}
+  command: "curl -s -o /dev/null -w '%{size_download}' https://{{ ansible_fqdn }}"
+  register: curl_result
+  retries: 5
+  delay: 5
+  until: "curl_result.stdout | int > 0"
+  failed_when: "curl_result.rc != 0"
+  changed_when: false
+  delegate_to: "{{ ansible_fqdn }}"

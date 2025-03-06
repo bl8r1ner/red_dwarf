@@ -1,8 +1,8 @@
 ---
 - name: Validate ssl_action input
-  fail:
-    msg: "Action must be 'install' or 'reinstall'"
-  when: ssl_action not in ['install', 'reinstall']
+  ansible.builtin.assert:
+    that: "ssl_action in ['install', 'reinstall']"
+    fail_msg: "ssl_action must be 'install' or 'reinstall'. Got: {{ ssl_action }}"
 
 - name: Validate web_server_type for install action
   fail:
@@ -11,21 +11,32 @@
     - ssl_action == 'install'
     - web_server_type is not defined or web_server_type not in ['httpd', 'nginx']
 
+- name: Detect running web server for reinstall
+  ansible.builtin.include_tasks: detect_webserver.yml
+  when: ssl_action == 'reinstall'
+
+- name: Ensure web server is running for reinstall
+  ansible.builtin.fail:
+    msg: "No web server (httpd or nginx) is running. Aborting reinstall..."
+  when:
+    - ssl_action == 'reinstall'
+    - web_server is defined and web_server == 'unknown'
+    
 - block:
     - name: Prepare SSL certificates and Root CA
-      include_tasks: prepare_certs.yml
+      ansible.builtin.include_tasks: prepare_certs.yml
 
     - name: Install web server and configure SSL
-      include_tasks: install.yml
+      ansible.builtin.include_tasks: install.yml
       when: ssl_action == 'install'
       vars:
         web_server: "{{ web_server_type }}"
 
     - name: Detect and reinstall web server certificates
-      include_tasks: reinstall.yml
+      ansible.builtin.include_tasks: reinstall.yml
       when: ssl_action == 'reinstall'
 
   always:
     - name: Clean up temporary files
-      include_tasks: cleanup.yml
-      tags: [cleanup]
+      ansible.builtin.include_tasks: cleanup.yml
+      when: ssl_action in ['install', 'reinstall']
