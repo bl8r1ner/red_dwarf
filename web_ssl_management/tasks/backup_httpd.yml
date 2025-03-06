@@ -1,0 +1,32 @@
+---
+- name: Extract httpd certificate and key paths
+  shell: >
+    awk '/^(SSLCertificateFile|SSLCertificateKeyFile)/ {print $2}' {{ web_server_config['httpd'].ssl_conf }}
+  register: httpd_ssl_paths
+  changed_when: false
+  failed_when: httpd_ssl_paths.rc != 0 or httpd_ssl_paths.stdout_lines | length < 2
+
+- name: Set httpd certificate and key paths
+  set_fact:
+    existing_cert_file: "{{ httpd_ssl_paths.stdout_lines | select('match', '.*\\.crt$') | reject('match', 'localhost\\.crt$') | first }}"
+    existing_key_file: "{{ httpd_ssl_paths.stdout_lines | select('match', '.*\\.key$') | reject('match', 'localhost\\.key$') | first }}"
+
+- name: Get stats of existing httpd certificates
+  stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - "{{ existing_cert_file }}"
+    - "{{ existing_key_file }}"
+  register: existing_stats
+
+- name: Backup existing httpd certificates
+  copy:
+    src: "{{ item.path }}"
+    dest: "{{ backup_dir }}/{{ item.path | basename }}.bkp_{{ ansible_date_time.iso8601_basic_short }}"
+    remote_src: true
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ existing_stats.results[0].stat.path }}", mode: '0644' }
+    - { path: "{{ existing_stats.results[1].stat.path }}", mode: '0600' }
+  when: existing_stats.results[0].stat.exists and existing_stats.results[1].stat.exists

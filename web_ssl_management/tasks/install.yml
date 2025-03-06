@@ -1,0 +1,36 @@
+---
+- name: Fail if web_server is undefined
+  fail:
+    msg: "Variable web_server must be defined for install action"
+  when: ssl_action == 'install' and web_server is not defined
+
+- name: Set package list based on web_server
+  set_fact:
+    package_list: "{{ web_server_config[web_server].packages }}"
+  when: ssl_action == 'install'
+
+- name: Install web server packages
+  package:
+    name: "{{ package_list }}"
+    state: present
+  when: ssl_action == 'install'
+  notify: daemon_reload
+
+- name: Flush handlers to reload daemon immediately
+  meta: flush_handlers
+
+- name: Set installation task file
+  set_fact:
+    install_task_file: "{{ 'install_httpd.yml' if web_server == 'httpd' else 'install_nginx.yml' }}"
+
+- name: Include web server-specific installation tasks
+  include_tasks: "{{ install_task_file }}"
+
+- name: Enable and start web server
+  service:
+    name: "{{ web_server_config[web_server].service_name }}"
+    state: started
+    enabled: true
+
+- name: Check HTTP response
+  include_tasks: check_response.yml

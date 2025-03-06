@@ -1,0 +1,28 @@
+---
+- name: Copy certificates and key to dedicated locations for httpd
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    remote_src: true
+  loop:
+    - { src: "{{ cert_files[0].path }}", dest: "{{ web_server_config['httpd'].cert_dir }}/{{ ansible_fqdn }}.crt", mode: '0644' }
+    - { src: "{{ key_files[0].path }}", dest: "{{ web_server_config['httpd'].key_dir }}/{{ ansible_fqdn }}.key", mode: '0600' }
+    - { src: "{{ ca_cert_file[0].path }}", dest: "{{ web_server_config['httpd'].cert_dir }}/intermediate.crt", mode: '0644' }
+  when: item.src is defined
+
+- name: Configure httpd SSL
+  lineinfile:
+    path: "{{ web_server_config['httpd'].ssl_conf }}"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^SSLCertificateFile.*$', line: "SSLCertificateFile {{ web_server_config['httpd'].cert_dir }}/{{ ansible_fqdn }}.crt" }
+    - { regexp: '^SSLCertificateKeyFile.*$', line: "SSLCertificateKeyFile {{ web_server_config['httpd'].key_dir }}/{{ ansible_fqdn }}.key" }
+    - { regexp: '^#?SSLCertificateChainFile.*$', line: "SSLCertificateChainFile {{ web_server_config['httpd'].cert_dir }}/intermediate.crt" }
+  register: ssl_config_changes
+  notify: Restart httpd server
+
+- name: Restart httpd server if changes were made
+  meta: flush_handlers
+  when: ssl_config_changes.changed

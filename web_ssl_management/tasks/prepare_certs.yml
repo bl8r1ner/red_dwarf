@@ -1,0 +1,54 @@
+---
+- name: Copy certificate ZIP to remote host
+  copy:
+    src: "{{ cert_zip }}"
+    dest: "/tmp/certificates.zip"
+    mode: '0600'
+
+- name: Ensure temp and backup directories exist and are empty
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0700'
+    recurse: yes
+  loop:
+    - "{{ temp_dir }}"
+    - "{{ backup_dir }}"
+
+- name: Extract certificate ZIP
+  unarchive:
+    src: "/tmp/certificates.zip"
+    dest: "{{ temp_dir }}"
+    remote_src: true
+
+- name: Find certificate, key, and intermediate files
+  find:
+    paths: "{{ temp_dir }}"
+    patterns:
+      - "{{ cert_pattern }}"
+      - "{{ key_pattern }}"
+      - "{{ ca_cert_pattern }}"
+    recurse: true
+  register: ssl_files
+
+- name: Set facts for certificate, key, and intermediate files
+  set_fact:
+    cert_files: "{{ ssl_files.files | selectattr('path', 'match', cert_regex) | rejectattr('path', 'match', ca_cert_regex) | list }}"
+    key_files: "{{ ssl_files.files | selectattr('path', 'match', key_regex) | list }}"
+    ca_cert_file: "{{ ssl_files.files | selectattr('path', 'match', ca_cert_regex) | list }}"
+
+- name: Validate certificate, key, and intermediate files
+  assert:
+    that:
+      - cert_files | length == 1
+      - key_files | length == 1
+      - ca_cert_file | length == 1
+    fail_msg: "Expected 1 cert ({{ cert_files | length }}), 1 key ({{ key_files | length }}), 1 intermediate ({{ ca_cert_file | length }}) in {{ temp_dir }}"
+
+- name: Copy Root CA to remote host
+  copy:
+    src: "{{ root_ca_file }}"
+    dest: "/etc/pki/ca-trust/source/anchors/Weizmann_Root_CA.pem"
+    mode: '0644'
+    backup: true
+  notify: Update CA trust

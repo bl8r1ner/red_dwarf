@@ -1,0 +1,53 @@
+---
+- name: Find Nginx config directories that exist
+  stat:
+    path: "{{ item | dirname }}"
+  loop: "{{ web_server_config['nginx'].ssl_conf_files }}"
+  register: dir_stats
+
+- name: Find Nginx config files with SSL directives
+  find:
+    paths: "{{ item.stat.path }}"
+    patterns: "{{ item.item | basename }}"
+    recurse: false
+  loop: "{{ dir_stats.results | selectattr('stat', 'defined') | selectattr('stat.exists', 'equalto', true) }}"
+  register: nginx_conf_files_raw
+
+- name: Flatten Nginx config file list
+  set_fact:
+    nginx_conf_files: "{{ nginx_conf_files_raw.results | selectattr('files', 'defined') | map(attribute='files') | flatten | default([]) }}"
+
+- name: Extract nginx certificate and key paths
+  shell: >
+    awk '/^[[:space:]]*(ssl_certificate|ssl_certificate_key)[[:space:]]/ {gsub(/\"/, \"\", $2); sub(/;$/, \"\", $2); print $2}' {{ nginx_conf_files | map(attribute='path') | join(' ') }}
+  register: nginx_ssl_paths
+  changed_when: false
+  failed_when: nginx_ssl_paths.rc != 0 and nginx_ssl_paths.rc != 1
+
+- name: Set nginx certificate and key paths
+  set_fact:
+    cert_file: "{{ nginx_ssl_paths.stdout_lines | select('match', '.*\\.(crt|pem)$') | list | first | default(default_cert_path) }}"
+    key_file: "{{ nginx_ssl_paths.stdout_lines | select('match', '.*\\.key$') | list | first | default(default_key_path) }}"
+  vars:
+    default_cert_path: "{{ web_server_config['nginx'].cert_dir }}/{{ (cert_files[0].path | basename | regex_replace('\\.cer$', '.crt')) }}"
+    default_key_path: "{{ web_server_config['nginx'].key_dir }}/{{ (key_files[0].path | basename) }}"
+  when: nginx_ssl_paths.stdout_lines is defined
+  
+- name: Get stats of existing nginx certificates
+  stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ cert_file }}"
+    - "{{ key_file }}"
+  register: existing_stats
+
+- name: Backup existing nginx certificates
+  copy:
+    src: "{{ item.path }}"
+    dest: "{{ backup_dir }}/{{ item.path | basename }}.bkp_{{ ansible_date_time.iso8601_basic_short }}"
+    remote_src: true
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ existing_stats.results[0].stat.path }}", mode: '0644' }
+    - { path: "{{ existing_stats.results[1].stat.path }}", mode: '0600' }
+  when: existing_stats.results[0].stat.exists and existing_stats.results[1].stat.exists

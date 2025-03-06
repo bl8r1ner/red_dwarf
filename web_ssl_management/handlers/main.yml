@@ -1,0 +1,21 @@
+---
+- name: Restart httpd server
+  service:
+    name: httpd
+    state: restarted
+  listen: "Restart httpd server"
+
+- name: Restart nginx server
+  service:
+    name: nginx
+    state: restarted
+  listen: "Restart nginx server"
+
+- name: Update CA trust
+  command: update-ca-trust extract
+  listen: "Update CA trust"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: "daemon_reload"

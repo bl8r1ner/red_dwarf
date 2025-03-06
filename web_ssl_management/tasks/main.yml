@@ -1,0 +1,31 @@
+---
+- name: Validate ssl_action input
+  fail:
+    msg: "Action must be 'install' or 'reinstall'"
+  when: ssl_action not in ['install', 'reinstall']
+
+- name: Validate web_server_type for install action
+  fail:
+    msg: "For ssl_action 'install', web_server_type must be either 'httpd' or 'nginx'."
+  when:
+    - ssl_action == 'install'
+    - web_server_type is not defined or web_server_type not in ['httpd', 'nginx']
+
+- block:
+    - name: Prepare SSL certificates and Root CA
+      include_tasks: prepare_certs.yml
+
+    - name: Install web server and configure SSL
+      include_tasks: install.yml
+      when: ssl_action == 'install'
+      vars:
+        web_server: "{{ web_server_type }}"
+
+    - name: Detect and reinstall web server certificates
+      include_tasks: reinstall.yml
+      when: ssl_action == 'reinstall'
+
+  always:
+    - name: Clean up temporary files
+      include_tasks: cleanup.yml
+      tags: [cleanup]

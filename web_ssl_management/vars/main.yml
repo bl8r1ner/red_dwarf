@@ -1,0 +1,20 @@
+---
+# Temporary directory for certificate extraction
+temp_dir: "/tmp/unzipped_certs"
+# Directory for backing up existing certificates
+backup_dir: "/etc/ssl/my_ssl_bkp"
+# Source certificate ZIP file
+#cert_zip: "/runner/project/packages/certificates/ibllmdmzv02.weizmann.ac.il_02272025_24708.zip"
+cert_zip: "/runner/project/packages/certificates/ibllmdmzv02.weizmann.ac.il_02262025_101456.zip"
+#cert_zip: "/runner/project/packages/certificates/ibllmdmzv02.weizmann.ac.il_02242025_51149.zip"
+
+# Root CA file
+root_ca_file: "/runner/project/packages/certificates/Weizmann_Root_CA.pem"
+# Certificate file search patterns
+cert_pattern: "*weizmann.ac.il*.cer"
+key_pattern: "*.key"
+ca_cert_pattern: "CACert.cer"
+# Regex patterns for filtering certificate files
+cert_regex: ".*\\.cer$"
+key_regex: ".*\\.key$"
+ca_cert_regex: ".*CACert\\.cer$"

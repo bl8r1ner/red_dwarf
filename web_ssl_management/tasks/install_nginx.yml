@@ -1,0 +1,47 @@
+---
+- name: Ensure Nginx certificate directories exist
+  file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ web_server_config['nginx'].cert_dir }}", mode: '0755' }
+    - { path: "{{ web_server_config['nginx'].key_dir }}", mode: '0700' }
+
+- name: Create Nginx full chain bundle (server cert + intermediate CA)
+  shell: "cat {{ cert_files[0].path }} {{ ca_cert_file[0].path }} > {{ temp_dir }}/fullchain.pem"
+  args:
+    creates: "{{ temp_dir }}/fullchain.pem"
+
+- name: Get stats of new nginx certificates
+  stat:
+    path: "{{ item }}"
+    checksum_algorithm: sha256
+  loop:
+    - "{{ temp_dir }}/fullchain.pem"
+    - "{{ key_files[0].path }}"
+  register: new_stats
+
+- name: Install new nginx certificates
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    remote_src: true
+  loop:
+    - { src: "{{ new_stats.results[0].stat.path }}", dest: "{{ web_server_config['nginx'].cert_dir }}/fullchain.pem", mode: '0644' }
+    - { src: "{{ new_stats.results[1].stat.path }}", dest: "{{ web_server_config['nginx'].key_dir }}/{{ ansible_fqdn }}.key", mode: '0600' }
+  notify: Restart nginx server
+
+- name: Configure Nginx SSL
+  template:
+    src: default.conf.j2
+    dest: /etc/nginx/conf.d/default.conf
+    backup: true
+  notify: Restart nginx server
+
+- name: Test Nginx configuration
+  command: nginx -t
+  register: nginx_test
+  failed_when: nginx_test.rc != 0
+  changed_when: false

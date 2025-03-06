@@ -1,0 +1,9 @@
+---
+- name: Clean up temporary files on {{ ansible_fqdn }}
+  file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ temp_dir }}"
+    - "/tmp/certificates.zip"
+  ignore_errors: true
