@@ -9,6 +9,11 @@
     package_list: "{{ web_server_config[web_server].packages }}"
   when: ssl_action == 'install'
 
+- name: Set task files based on web_server
+  set_fact:
+    install_task_file: "{{ 'install_httpd.yml' if web_server == 'httpd' else 'install_nginx.yml' }}"
+    check_response_task_file: "{{ 'check_response_curl.yml' if ssl_action == 'install' else 'check_response.yml' }}"
+
 - name: Install web server packages
   package:
     name: "{{ package_list }}"
@@ -18,11 +23,7 @@
 
 - name: Flush handlers to reload daemon immediately
   meta: flush_handlers
-
-- name: Set installation task file
-  set_fact:
-    install_task_file: "{{ 'install_httpd.yml' if web_server == 'httpd' else 'install_nginx.yml' }}"
-
+    
 - name: Include web server-specific installation tasks
   include_tasks: "{{ install_task_file }}"
 
@@ -33,9 +34,4 @@
     enabled: true
 
 - name: Check HTTP response
-  include_tasks: check_response.yml
-  when: web_server == "nginx"
-
-- name: Check HTTP response
-  include_tasks: check_response_httpd.yml
-  when: web_server == "httpd"
+  include_tasks: "{{ check_response_task_file }}"

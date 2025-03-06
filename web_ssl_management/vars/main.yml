@@ -3,13 +3,19 @@
 temp_dir: "/tmp/unzipped_certs"
 # Directory for backing up existing certificates
 backup_dir: "/etc/ssl/my_ssl_bkp"
+# Define path to storage location
+cert_base_path: "/runner/project/packages/certificates"
+
+
 # Source certificate ZIP file
-#cert_zip: "/runner/project/packages/certificates/ibllmdmzv02.weizmann.ac.il_02272025_24708.zip"
-#cert_zip: "/runner/project/packages/certificates/ibllmdmzv02.weizmann.ac.il_02262025_101456.zip"
-cert_zip: "/runner/project/packages/certificates/ibllmdmzv02.weizmann.ac.il_02242025_51149.zip"
+cert_zip: "{{ cert_base_path }}/{{ cert_filename }}"
+
+#cert_zip: "{{ cert_base_path }}/ibllmdmzv02.weizmann.ac.il_02272025_24708.zip"
+#cert_zip: "{{ cert_base_path }}/ibllmdmzv02.weizmann.ac.il_02262025_101456.zip"
+#cert_zip: "{{ cert_base_path }}/ibllmdmzv02.weizmann.ac.il_02242025_51149.zip"
 
 # Root CA file
-root_ca_file: "/runner/project/packages/certificates/Weizmann_Root_CA.pem"
+root_ca_file: "{{ cert_base_path }}/Weizmann_Root_CA.pem"
 # Certificate file search patterns
 cert_pattern: "*weizmann.ac.il*.cer"
 key_pattern: "*.key"

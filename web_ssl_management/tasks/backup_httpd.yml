@@ -14,7 +14,6 @@
 - name: Get stats of existing httpd certificates
   stat:
     path: "{{ item }}"
-    checksum_algorithm: sha256
   loop:
     - "{{ existing_cert_file }}"
     - "{{ existing_key_file }}"
