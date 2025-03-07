@@ -18,7 +18,9 @@
     msg: "Cannot install {{ web_server_type }} because {{ 'httpd' if web_server_type == 'nginx' else 'nginx' }} is already running."
   when:
     - ssl_action == 'install'
-    - web_server != 'unknown' and web_server != web_server_type
+    - web_server is defined
+    - web_server != 'unknown'
+    - web_server != web_server_type
 
 - name: Fail if no web server is running for reinstall
   ansible.builtin.fail:
