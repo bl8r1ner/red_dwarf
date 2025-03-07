@@ -26,11 +26,12 @@
     key_dir: "{{ web_server_config[web_server].key_dir }}"
   when: web_server != 'unknown'
 
-
-- name: Debug
+- name: Debug variables
   ansible.builtin.debug:
-    var:
-      - ssl_conf
-      - service_name
-      - cert_dir
-      - key_dir
+   msg: |
+     ssl_conf: {{ ssl_conf | default('not set') }}
+     service_name: {{ service_name | default('not set') }}
+     cert_dir: {{ cert_dir | default('not set') }}
+     key_dir: {{ key_dir | default('not set') }}
+
+
