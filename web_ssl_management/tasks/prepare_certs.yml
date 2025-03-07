@@ -1,11 +1,6 @@
+# web_ssl_management/tasks/prepare_certs.yml
 ---
-- name: Copy certificate ZIP to remote host
-  copy:
-    src: "{{ cert_zip }}"
-    dest: "/tmp/certificates.zip"
-    mode: '0600'
-
-- name: Ensure temp and backup directories exist and are empty
+- name: Ensure temp and backup directories exist
   file:
     path: "{{ item }}"
     state: directory
@@ -15,29 +10,33 @@
     - "{{ temp_dir }}"
     - "{{ backup_dir }}"
 
+#- name: Copy certificate ZIP to remote host # This task is commented out to see if unarchive will hold remote exec
+#  copy:
+#    src: "{{ cert_zip }}"
+#    dest: "/tmp/certificates.zip"
+#    mode: '0600'
+
 - name: Extract certificate ZIP
   unarchive:
-    src: "/tmp/certificates.zip"
+#    src: "/tmp/certificates.zip"
+    src: "{{ cert_zip }}"
     dest: "{{ temp_dir }}"
-    remote_src: true
+#    remote_src: true
 
-- name: Find certificate, key, and intermediate files
+- name: Find SSL files
   find:
     paths: "{{ temp_dir }}"
-    patterns:
-      - "{{ cert_pattern }}"
-      - "{{ key_pattern }}"
-      - "{{ ca_cert_pattern }}"
+    patterns: "{{ [cert_pattern, key_pattern, ca_cert_pattern] | join('|') }}"
     recurse: true
   register: ssl_files
 
-- name: Set facts for certificate, key, and intermediate files
+- name: Set facts for SSL files
   set_fact:
     cert_files: "{{ ssl_files.files | selectattr('path', 'match', cert_regex) | rejectattr('path', 'match', ca_cert_regex) | list }}"
     key_files: "{{ ssl_files.files | selectattr('path', 'match', key_regex) | list }}"
     ca_cert_file: "{{ ssl_files.files | selectattr('path', 'match', ca_cert_regex) | list }}"
 
-- name: Validate certificate, key, and intermediate files
+- name: Validate SSL files
   assert:
     that:
       - cert_files | length == 1
@@ -47,8 +46,8 @@
 
 - name: Copy Root CA to remote host
   copy:
-    src: "{{ root_ca_file }}"
-    dest: "/etc/pki/ca-trust/source/anchors/Weizmann_Root_CA.pem"
+    src: "{{ root_ca_file_local }}"
+    dest: "{{ root_ca_file_remote }}"
     mode: '0644'
     backup: true
   notify: Update CA trust

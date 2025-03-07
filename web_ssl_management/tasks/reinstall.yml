@@ -1,21 +1,12 @@
+# web_ssl_management/tasks/reinstall.yml
 ---
-- name: Detect running web server
-  include_tasks: detect_webserver.yml
-  tags: [detect]
-
-- name: Set backup task file
-  set_fact:
-    backup_task_file: "{{ 'backup_httpd.yml' if web_server == 'httpd' else 'backup_nginx.yml' }}"
+- name: Set reinstallation variables
+  ansible.builtin.set_fact:
+    backup_task_file: "{{ web_server_config[web_server].backup_task }}"
+    reinstall_task_file: "{{ web_server_config[web_server].install_task }}"
 
 - name: Backup existing certificates
-  include_tasks: "{{ backup_task_file }}"
+  ansible.builtin.include_tasks: "{{ backup_task_file }}"
 
-- name: Set reinstall task file
-  set_fact:
-    reinstall_task_file: "{{ 'install_httpd.yml' if web_server == 'httpd' else 'install_nginx.yml' }}"
-
-- name: Include web server-specific reinstallation tasks
-  include_tasks: "{{ reinstall_task_file }}"
-
-- name: Check HTTP response
-  include_tasks: check_response.yml
+- name: Reapply web server configuration
+  ansible.builtin.include_tasks: "{{ reinstall_task_file }}"

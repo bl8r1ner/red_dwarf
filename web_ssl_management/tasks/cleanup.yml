@@ -5,5 +5,5 @@
     state: absent
   loop:
     - "{{ temp_dir }}"
-    - "/tmp/certificates.zip"
+    - "{{ temp_zip_path }}"
   ignore_errors: true

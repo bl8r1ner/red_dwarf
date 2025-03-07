@@ -1,18 +1,20 @@
+# - name: Backup existing httpd certificates
 ---
-- name: Extract httpd certificate and key paths
-  shell: >
-    awk '/^(SSLCertificateFile|SSLCertificateKeyFile)/ {print $2}' {{ web_server_config['httpd'].ssl_conf }}
-  register: httpd_ssl_paths
-  changed_when: false
-  failed_when: httpd_ssl_paths.rc != 0 or httpd_ssl_paths.stdout_lines | length < 2
+- name: Extract SSL file paths from httpd config
+  ansible.builtin.set_fact:
+    ssl_paths: "{{ lookup('file', web_server_config.httpd.ssl_conf) | regex_findall('^(SSLCertificateFile|SSLCertificateKeyFile)\s+(.+)$', multiline=true) | map('last') | list }}"
+  when: web_server_config.httpd.ssl_conf is defined
 
-- name: Set httpd certificate and key paths
-  set_fact:
-    existing_cert_file: "{{ httpd_ssl_paths.stdout_lines | select('match', '.*\\.crt$') | reject('match', 'localhost\\.crt$') | first }}"
-    existing_key_file: "{{ httpd_ssl_paths.stdout_lines | select('match', '.*\\.key$') | reject('match', 'localhost\\.key$') | first }}"
+- name: Set certificate and key paths
+  ansible.builtin.set_fact:
+    existing_cert_file: "{{ (ssl_paths | select('match', '.\.crt$') | reject('match', 'localhost\.crt$') | first) | default(cert_dir ~ '/' ~ ansible_fqdn ~ '.crt') }}"
+    existing_key_file: "{{ (ssl_paths | select('match', '.\.key$') | reject('match', 'localhost\.key$') | first) | default(key_dir ~ '/' ~ ansible_fqdn ~ '.key') }}"
+  vars:
+    cert_dir: "{{ web_server_config.httpd.cert_dir }}"
+    key_dir: "{{ web_server_config.httpd.key_dir }}"
 
 - name: Get stats of existing httpd certificates
-  stat:
+  ansible.builtin.stat:
     path: "{{ item }}"
   loop:
     - "{{ existing_cert_file }}"
@@ -20,7 +22,7 @@
   register: existing_stats
 
 - name: Backup existing httpd certificates
-  copy:
+  ansible.builtin.copy:
     src: "{{ item.path }}"
     dest: "{{ backup_dir }}/{{ item.path | basename }}.bkp_{{ ansible_date_time.iso8601_basic_short }}"
     remote_src: true

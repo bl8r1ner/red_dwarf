@@ -1,28 +1,27 @@
+# web_ssl_management/tasks/install_httpd.yml
 ---
-- name: Copy certificates and key to dedicated locations for httpd
-  copy:
+- name: Install certificates and key
+  ansible.builtin.copy:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     mode: "{{ item.mode }}"
     remote_src: true
   loop:
-    - { src: "{{ cert_files[0].path }}", dest: "{{ web_server_config['httpd'].cert_dir }}/{{ ansible_fqdn }}.crt", mode: '0644' }
-    - { src: "{{ key_files[0].path }}", dest: "{{ web_server_config['httpd'].key_dir }}/{{ ansible_fqdn }}.key", mode: '0600' }
-    - { src: "{{ ca_cert_file[0].path }}", dest: "{{ web_server_config['httpd'].cert_dir }}/intermediate.crt", mode: '0644' }
-  when: item.src is defined
+    - { src: "{{ cert_files[0].path }}", dest: "{{ cert_dir }}/{{ ansible_fqdn }}.crt", mode: '0644' }
+    - { src: "{{ key_files[0].path }}", dest: "{{ key_dir }}/{{ ansible_fqdn }}.key", mode: '0600' }
+    - { src: "{{ ca_cert_file[0].path }}", dest: "{{ cert_dir }}/intermediate.crt", mode: '0644' }
+  vars:
+    cert_dir: "{{ web_server_config.httpd.cert_dir }}"
+    key_dir: "{{ web_server_config.httpd.key_dir }}"
 
 - name: Configure httpd SSL
-  lineinfile:
-    path: "{{ web_server_config['httpd'].ssl_conf }}"
-    regexp: "{{ item.regexp }}"
-    line: "{{ item.line }}"
-  loop:
-    - { regexp: '^SSLCertificateFile.*$', line: "SSLCertificateFile {{ web_server_config['httpd'].cert_dir }}/{{ ansible_fqdn }}.crt" }
-    - { regexp: '^SSLCertificateKeyFile.*$', line: "SSLCertificateKeyFile {{ web_server_config['httpd'].key_dir }}/{{ ansible_fqdn }}.key" }
-    - { regexp: '^#?SSLCertificateChainFile.*$', line: "SSLCertificateChainFile {{ web_server_config['httpd'].cert_dir }}/intermediate.crt" }
-  register: ssl_config_changes
+  ansible.builtin.template:
+    src: httpd_ssl.conf.j2
+    dest: "{{ ssl_conf }}"
+    mode: '0644'
+    backup: yes
   notify: Restart httpd server
-
-- name: Restart httpd server if changes were made
-  meta: flush_handlers
-  when: ssl_config_changes.changed
+  vars:
+    ssl_conf: "{{ web_server_config.httpd.ssl_conf }}"
+    cert_dir: "{{ web_server_config.httpd.cert_dir }}"
+    key_dir: "{{ web_server_config.httpd.key_dir }}"

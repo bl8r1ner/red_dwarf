@@ -1,25 +1,32 @@
 ---
+# Certificate management directories
+
 # Temporary directory for certificate extraction
 temp_dir: "/tmp/unzipped_certs"
+
 # Directory for backing up existing certificates
 backup_dir: "/etc/ssl/my_ssl_bkp"
+
 # Define path to storage location
 cert_base_path: "/runner/project/packages/certificates"
 
+# Define path to RootCA location
+ca_trust_dir: "/etc/pki/ca-trust/source/anchors"
 
 # Source certificate ZIP file
 cert_zip: "{{ cert_base_path }}/{{ cert_filename }}"
 
-#cert_zip: "{{ cert_base_path }}/ibllmdmzv02.weizmann.ac.il_02272025_24708.zip"
-#cert_zip: "{{ cert_base_path }}/ibllmdmzv02.weizmann.ac.il_02262025_101456.zip"
-#cert_zip: "{{ cert_base_path }}/ibllmdmzv02.weizmann.ac.il_02242025_51149.zip"
+# Root CA file on local controller
+root_ca_file_local: "{{ cert_base_path }}/Weizmann_Root_CA.pem"
 
-# Root CA file
-root_ca_file: "{{ cert_base_path }}/Weizmann_Root_CA.pem"
+# Root CA file on remote host
+root_ca_file_remote: "{{ ca_trust_dir }}/Weizmann_Root_CA.pem"
+
 # Certificate file search patterns
 cert_pattern: "*weizmann.ac.il*.cer"
 key_pattern: "*.key"
 ca_cert_pattern: "CACert.cer"
+
 # Regex patterns for filtering certificate files
 cert_regex: ".*\\.cer$"
 key_regex: ".*\\.key$"

@@ -4,8 +4,8 @@ server {
     server_name  {{ ansible_fqdn }};
     root         /usr/share/nginx/html;
 
-    ssl_certificate "{{ web_server_config['nginx'].cert_dir }}/fullchain.pem";
-    ssl_certificate_key "{{ web_server_config['nginx'].key_dir }}/{{ ansible_fqdn }}.key";
+    ssl_certificate "{{ cert_dir }}/fullchain.pem";
+    ssl_certificate_key "{{ key_dir }}/{{ ansible_fqdn }}.key";
     ssl_session_cache shared:SSL:1m;
     ssl_session_timeout  10m;
     ssl_ciphers PROFILE=SYSTEM;

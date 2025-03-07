@@ -1,22 +1,21 @@
+# web_ssl_management/tasks/detect_webserver.yml
 ---
 - name: Gather service facts
-  service_facts:
-
-- name: Check httpd.socket status
-  command: "systemctl is-active httpd.socket"
-  register: httpd_socket_status
-  changed_when: false
-  failed_when: false
+  ansible.builtin.service_facts:
 
 - name: Determine running web server
-  set_fact:
+  ansible.builtin.set_fact:
     web_server: >-
-      {{ 'httpd' if 
-        ('httpd.service' in ansible_facts.services and ansible_facts.services['httpd.service'].state == 'running') or 
-        (httpd_socket_status.rc == 0) 
-      else 'nginx' if 'nginx.service' in ansible_facts.services and ansible_facts.services['nginx.service'].state == 'running' 
-      else 'unknown' }}
+      {{ web_server_type if ssl_action == 'install' else
+      'httpd' if 'httpd.service' in ansible_facts.services and ansible_facts.services['httpd.service'].state == 'running' else
+      'nginx' if 'nginx.service' in ansible_facts.services and ansible_facts.services['nginx.service'].state == 'running' else
+      'unknown' }}
 
+- name: Validate web_server value # Overkill but I would like to be sure
+  ansible.builtin.assert:
+    that: web_server in ['httpd', 'nginx', 'unknown']
+    fail_msg: "web_server has an invalid value: {{ web_server }}. Expected 'httpd', 'nginx', or 'unknown'."
+  when: ssl_action in ['install', 'reinstall']
 
 - name: Set base web server-specific variables
   set_fact:
@@ -25,13 +24,3 @@
     cert_dir: "{{ web_server_config[web_server].cert_dir }}"
     key_dir: "{{ web_server_config[web_server].key_dir }}"
   when: web_server != 'unknown'
-
-- name: Debug variables
-  ansible.builtin.debug:
-   msg: |
-     ssl_conf: {{ ssl_conf | default('not set') }}
-     service_name: {{ service_name | default('not set') }}
-     cert_dir: {{ cert_dir | default('not set') }}
-     key_dir: {{ key_dir | default('not set') }}
-
-

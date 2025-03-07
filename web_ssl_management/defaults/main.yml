@@ -7,6 +7,10 @@ web_server_config:
     cert_dir: "/etc/pki/tls/certs"
     key_dir: "/etc/pki/tls/private"
     packages: ["httpd", "mod_ssl"]
+    install_task: "install_httpd.yml"
+    backup_task: "backup_httpd.yml"
+    check_response_task: "check_response.yml"
+    socket_service: "httpd.socket"
   nginx:
     service_name: "nginx"
     ssl_conf: "/etc/nginx/nginx.conf"
@@ -16,3 +20,15 @@ web_server_config:
       - "/etc/nginx/conf.d/*.conf"
 #      - "/etc/nginx/sites-enabled/*.conf"
     packages: ["nginx"]
+    install_task: "install_nginx.yml"
+    backup_task: "backup_nginx.yml"
+    check_response_task: "check_response.yml"
+
+ca_trust_dir: "/etc/pki/ca-trust/source/anchors"
+temp_zip_path: "/tmp/certificates.zip"
+
+
+# Required variables (to be provided by AAP)
+# ssl_action: 'install' or 'reinstall'
+# web_server_type: 'httpd' or 'nginx' (for install only)
+# cert_filename: filename of the certificate zip in the certificates directory

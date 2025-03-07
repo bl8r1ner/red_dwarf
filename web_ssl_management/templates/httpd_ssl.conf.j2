@@ -1,0 +1,22 @@
+# SSL Configuration for httpd
+<VirtualHost *:443>
+    ServerName {{ ansible_fqdn }}
+
+    SSLEngine on
+    SSLCertificateFile {{ cert_dir }}/{{ ansible_fqdn }}.crt
+    SSLCertificateKeyFile {{ key_dir }}/{{ ansible_fqdn }}.key
+    SSLCertificateChainFile {{ cert_dir }}/intermediate.crt
+
+    # Additional SSL settings
+    SSLProtocol all -SSLv2 -SSLv3 -TLSv1 -TLSv1.1
+    SSLCipherSuite ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
+    SSLHonorCipherOrder on
+
+    # Document root (adjust as needed)
+    DocumentRoot "/var/www/html"
+    <Directory "/var/www/html">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
