@@ -1,0 +1,30 @@
+---
+- name: Validate ssl_action input
+  ansible.builtin.assert:
+    that: "ssl_action in ['install', 'reinstall']"
+    fail_msg: "ssl_action must be 'install' or 'reinstall'. Got: {{ ssl_action }}"
+
+- name: Validate web_server_type for install action
+  ansible.builtin.assert:
+    that: "web_server_type in ['httpd', 'nginx']"
+    fail_msg: "For ssl_action 'install', web_server_type must be 'httpd' or 'nginx'. Got: {{ web_server_type }}"
+  when: ssl_action == 'install'
+
+- name: Detect running web server for reinstall
+  ansible.builtin.include_tasks: detect_webserver.yml
+
+- name: Fail if opposite web server is running for install
+  ansible.builtin.fail:
+    msg: "Cannot install {{ web_server_type }} because {{ 'httpd' if web_server_type == 'nginx' else 'nginx' }} is already running."
+  when:
+    - ssl_action == 'install'
+    - web_server == ('httpd' if web_server_type == 'nginx' else 'nginx')
+
+- name: Fail if no web server is running for reinstall
+  ansible.builtin.fail:
+    msg: "No web server (httpd or nginx) is running. Aborting reinstall..."
+  when:
+    - ssl_action == 'reinstall'
+    - web_server == 'unknown'
+
+

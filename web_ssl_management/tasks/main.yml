@@ -1,26 +1,7 @@
 ---
-- name: Validate ssl_action input
-  ansible.builtin.assert:
-    that: "ssl_action in ['install', 'reinstall']"
-    fail_msg: "ssl_action must be 'install' or 'reinstall'. Got: {{ ssl_action }}"
+- name: Perform pre-installation and pre-reinstallation checks
+  ansible.builtin.include_tasks: prechecks.yml
 
-- name: Validate web_server_type for install action
-  fail:
-    msg: "For ssl_action 'install', web_server_type must be either 'httpd' or 'nginx'."
-  when:
-    - ssl_action == 'install'
-    - web_server_type is not defined or web_server_type not in ['httpd', 'nginx']
-
-- name: Detect running web server for reinstall
-  ansible.builtin.include_tasks: detect_webserver.yml
-  when: ssl_action == 'reinstall'
-
-- name: Ensure web server is running for reinstall
-  ansible.builtin.fail:
-    msg: "No web server (httpd or nginx) is running. Aborting reinstall..."
-  when:
-    - ssl_action == 'reinstall'
-    - web_server is defined and web_server == 'unknown'
     
 - block:
     - name: Prepare SSL certificates and Root CA

@@ -17,18 +17,6 @@
       else 'nginx' if 'nginx.service' in ansible_facts.services and ansible_facts.services['nginx.service'].state == 'running' 
       else 'unknown' }}
 
-- name: Fail if no web server is running
-  fail:
-    msg: "No web server (httpd or nginx) is running. Aborting..."
-  when: web_server == 'unknown'
-
-- name: Fail if both web servers are running
-  fail:
-    msg: "Both httpd and nginx are running, which is not supported. Aborting..."
-  when: >
-    (('httpd.service' in ansible_facts.services and ansible_facts.services['httpd.service'].state == 'running') or
-     (httpd_socket_status.rc == 0)) and
-    ('nginx.service' in ansible_facts.services and ansible_facts.services['nginx.service'].state == 'running')
 
 - name: Set base web server-specific variables
   set_fact:
@@ -37,3 +25,12 @@
     cert_dir: "{{ web_server_config[web_server].cert_dir }}"
     key_dir: "{{ web_server_config[web_server].key_dir }}"
   when: web_server != 'unknown'
+
+
+- name: Debug
+  ansible.builtin.debug:
+    var:
+      - ssl_conf
+      - service_name
+      - cert_dir
+      - key_dir
