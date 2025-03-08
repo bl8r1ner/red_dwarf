@@ -12,31 +12,42 @@
     cert_dir: "{{ web_server_config.nginx.cert_dir }}"
     key_dir: "{{ web_server_config.nginx.key_dir }}"
 
+# Here I opt for simple shell, although proper way would be use slurp module
+#- name: Create and install fullchain bundle
+#  ansible.builtin.shell: |
+#    cat {{ cert_files[0].path }} {{ ca_cert_file[0].path }} > {{ cert_dir }}/fullchain.pem
+
+- name: Read certificate file
+  ansible.builtin.slurp:
+    src: "{{ cert_files[0].path }}"
+  register: cert_content
+
+- name: Read CA certificate file
+  ansible.builtin.slurp:
+    src: "{{ ca_cert_file[0].path }}"
+  register: ca_cert_content
+
 - name: Create full chain bundle
   ansible.builtin.copy:
-    content: "{{ lookup('file', cert_files[0].path) + lookup('file', ca_cert_file[0].path) }}"
-    dest: "{{ temp_dir }}/fullchain.pem"
-    mode: '0644'
-  vars:
-    cert_dir: "{{ web_server_config.nginx.cert_dir }}"
-    key_dir: "{{ web_server_config.nginx.key_dir }}"
+    content: "{{ cert_content['content'] | b64decode }}\n{{ ca_cert_content['content'] | b64decode }}"
+    dest: "{{ cert_dir }}/fullchain.pem"
 
-- name: Install new certificates
+- name: Install new key for {{ cert_dir }}/fullchain.pem
   ansible.builtin.copy:
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-    mode: "{{ item.mode }}"
+    src: "{{ key_files[0].path }}"
+    dest: "{{ key_dir }}/{{ ansible_fqdn }}.key"
+    mode: "0600"
     remote_src: true
-  loop:
-    - { src: "{{ temp_dir }}/fullchain.pem", dest: "{{ cert_dir }}/fullchain.pem", mode: '0644' }
-    - { src: "{{ key_files[0].path }}", dest: "{{ key_dir }}/{{ ansible_fqdn }}.key", mode: '0600' }
-  notify: Restart nginx server
 
 - name: Configure Nginx SSL
   ansible.builtin.template:
     src: default.conf.j2
     dest: "{{ ssl_conf }}"
     backup: yes
-  notify: Restart nginx server
+  notify: Restart web server
   vars:
     ssl_conf: "{{ web_server_config.nginx.ssl_conf }}"
+
+- name: Flush handlers to reload nginx immediately
+  meta: flush_handlers
+

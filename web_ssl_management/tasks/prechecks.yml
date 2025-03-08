@@ -33,25 +33,16 @@
 
 - name: Fail if no web server is running for reinstall
   ansible.builtin.fail:
-    msg: "No web server is running. Aborting reinstall..."
+    msg: "No running web server (httpd or nginx) detected. Cannot proceed with reinstall."
   when:
     - ssl_action == 'reinstall'
     - running_web_server == 'unknown'
 
-- name: Fail if web server type does not match running server for reinstall
-  ansible.builtin.fail:
-    msg: "Running web server ({{ running_web_server }}) does not match expected type ({{ web_server_type }}). Aborting reinstall..."
+- name: Warn if web_server_type mismatches for reinstall
+  ansible.builtin.debug:
+    msg: "Ignoring web_server_type '{{ web_server_type }}' for reinstall; using detected server '{{ running_web_server }}'."
   when:
     - ssl_action == 'reinstall'
     - web_server_type is defined
     - running_web_server != 'unknown'
     - running_web_server != web_server_type
-
-- name: Fail if web_server_type is invalid for install
-  ansible.builtin.fail:
-    msg: "Invalid web_server_type: {{ web_server_type }}. Must be 'httpd' or 'nginx'."
-  when:
-    - ssl_action == 'install'
-    - web_server_type is defined
-    - web_server_type not in ['httpd', 'nginx']
-

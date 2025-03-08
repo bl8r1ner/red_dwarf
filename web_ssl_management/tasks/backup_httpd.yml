@@ -1,19 +1,36 @@
 # - name: Backup existing httpd certificates
 ---
-- name: Extract SSL file paths from httpd config
+- name: Set base web server-specific variables
   ansible.builtin.set_fact:
-    ssl_paths: "{{ lookup('file', web_server_config.httpd.ssl_conf) | regex_findall('^(SSLCertificateFile|SSLCertificateKeyFile)\s+(.+)$', multiline=true) | map('last') | list }}"
-  when: web_server_config.httpd.ssl_conf is defined
+    ssl_conf: "{{ web_server_config[web_server].ssl_conf }}"
+  vars:
+    web_server: "httpd"
+
+- name: Read SSL config file
+  ansible.builtin.slurp:
+    src: "{{ ssl_conf }}"
+  register: ssl_conf_content
+  when: ssl_conf is defined
+
+- name: Extract SSL file paths
+  ansible.builtin.set_fact:
+    ssl_paths: "{{ (ssl_conf_content['content'] | b64decode) | regex_findall('(?m)^(SSLCertificateFile|SSLCertificateKeyFile)\\s+(.+)$') | map('last') | list }}"
+  when: ssl_conf_content is defined and ssl_conf_content['content'] is defined
+
+
+- name: Debug - Print extracted SSL paths
+  ansible.builtin.debug:
+    var: ssl_paths
 
 - name: Set certificate and key paths
   ansible.builtin.set_fact:
-    existing_cert_file: "{{ (ssl_paths | select('match', '.\.crt$') | reject('match', 'localhost\.crt$') | first) | default(cert_dir ~ '/' ~ ansible_fqdn ~ '.crt') }}"
-    existing_key_file: "{{ (ssl_paths | select('match', '.\.key$') | reject('match', 'localhost\.key$') | first) | default(key_dir ~ '/' ~ ansible_fqdn ~ '.key') }}"
+    existing_cert_file: "{{ (ssl_paths | select('match', '.\\.crt$') | first) | default(cert_dir ~ '/' ~ ansible_fqdn ~ '.crt') }}"
+    existing_key_file: "{{ (ssl_paths | select('match', '.\\.key$') | first) | default(key_dir ~ '/' ~ ansible_fqdn ~ '.key') }}"
   vars:
     cert_dir: "{{ web_server_config.httpd.cert_dir }}"
     key_dir: "{{ web_server_config.httpd.key_dir }}"
 
-- name: Get stats of existing httpd certificates
+- name: Get stats of existing httpd certificates on {{ ansible_fqdn }}
   ansible.builtin.stat:
     path: "{{ item }}"
   loop:
@@ -21,7 +38,7 @@
     - "{{ existing_key_file }}"
   register: existing_stats
 
-- name: Backup existing httpd certificates
+- name: Backup existing httpd certificates on {{ ansible_fqdn }}
   ansible.builtin.copy:
     src: "{{ item.path }}"
     dest: "{{ backup_dir }}/{{ item.path | basename }}.bkp_{{ ansible_date_time.iso8601_basic_short }}"

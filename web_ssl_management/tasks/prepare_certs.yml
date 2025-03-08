@@ -1,6 +1,6 @@
 # web_ssl_management/tasks/prepare_certs.yml
 ---
-- name: Ensure temp and backup directories exist
+- name: Ensure temp and backup directories exist on {{ ansible_fqdn }}
   file:
     path: "{{ item }}"
     state: directory
@@ -10,32 +10,32 @@
     - "{{ temp_dir }}"
     - "{{ backup_dir }}"
 
-- name: Copy certificate ZIP to remote host # This task is commented out to see if unarchive will hold remote exec
+- name: Copy certificate ZIP to {{ ansible_fqdn }}
   copy:
     src: "{{ cert_zip }}"
     dest: "{{ temp_zip_path }}"
     mode: '0600'
 
-- name: Extract certificate ZIP
+- name: Extract certificate ZIP on {{ ansible_fqdn }}
   unarchive:
     src: "{{ temp_zip_path }}"
     dest: "{{ temp_dir }}"
     remote_src: true
 
-- name: Find SSL files
+- name: Find SSL files in {{ temp_zip_path }} on {{ ansible_fqdn }}
   find:
     paths: "{{ temp_dir }}"
     patterns: "{{ [cert_pattern, key_pattern, ca_cert_pattern] }}"
     recurse: true
   register: ssl_files
 
-- name: Set facts for SSL files
+- name: Set facts for SSL files found in {{ temp_zip_path }} on {{ ansible_fqdn }}
   set_fact:
     cert_files: "{{ ssl_files.files | selectattr('path', 'match', cert_regex) | rejectattr('path', 'match', ca_cert_regex) | list }}"
     key_files: "{{ ssl_files.files | selectattr('path', 'match', key_regex) | list }}"
     ca_cert_file: "{{ ssl_files.files | selectattr('path', 'match', ca_cert_regex) | list }}"
 
-- name: Validate SSL files
+- name: Validate SSL files found in {{ temp_zip_path }} on {{ ansible_fqdn }}
   assert:
     that:
       - cert_files | length == 1
@@ -48,10 +48,14 @@
       in {{ temp_dir }}. 
       Found files: {{ ssl_files.files | map(attribute='path') | list }}
 
-- name: Copy Root CA to remote host
+- name: Copy Root CA to {{ ansible_fqdn }}
   copy:
     src: "{{ root_ca_file_local }}"
     dest: "{{ root_ca_file_remote }}"
     mode: '0644'
     backup: true
   notify: Update CA trust
+
+- name: Flush handlers to update CA trust immediately
+  meta: flush_handlers
+

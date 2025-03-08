@@ -20,8 +20,12 @@
     dest: "{{ ssl_conf }}"
     mode: '0644'
     backup: yes
-  notify: Restart httpd server
+  notify: Restart web server
   vars:
     ssl_conf: "{{ web_server_config.httpd.ssl_conf }}"
     cert_dir: "{{ web_server_config.httpd.cert_dir }}"
     key_dir: "{{ web_server_config.httpd.key_dir }}"
+
+- name: Flush handlers to reload httpd immediately
+  meta: flush_handlers
+

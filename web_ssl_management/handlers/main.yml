@@ -1,14 +1,16 @@
 ---
-- name: Restart httpd server
+- name: Restart web server
   service:
-    name: httpd
+    name: "{{ web_server_config[web_server].service_name }}"
     state: restarted
-  listen: "Restart httpd server"
+    enabled: true
+  listen: "Restart web server"
 
 - name: Restart nginx server
   service:
     name: nginx
     state: restarted
+    enabled: true
   listen: "Restart nginx server"
 
 - name: Update CA trust
@@ -18,4 +20,4 @@
 - name: Reload systemd daemon
   ansible.builtin.systemd:
     daemon_reload: true
-  listen: "daemon_reload"
+  listen: "systemd daemon reload"

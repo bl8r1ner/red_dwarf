@@ -3,6 +3,13 @@
 - name: Gather service facts
   ansible.builtin.service_facts:
 
+- name: Fail if multiple web servers are running
+  ansible.builtin.fail:
+      msg: "Both httpd and nginx are running. Please ensure only one web server is active."
+  when:
+    - "'httpd.service' in ansible_facts.services and ansible_facts.services['httpd.service'].state == 'running'"
+    - "'nginx.service' in ansible_facts.services and ansible_facts.services['nginx.service'].state == 'running'"
+
 - name: Determine running web server
   ansible.builtin.set_fact:
     running_web_server: >-

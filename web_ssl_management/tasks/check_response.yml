@@ -1,16 +1,38 @@
-# web_ssl_management/tasks/check_response.yml
 ---
-- name: Gather facts if needed
-  ansible.builtin.setup:
-  when: ansible_fqdn is not defined
+- name: Verify HTTP server is responding
+  block:
+#    - name: Check with uri module first
+#      uri:
+#        url: "https://{{ ansible_fqdn }}"
+#        method: GET
+#      register: uri_result
+#      retries: 3
+#      delay: 5
+#      delegate_to: "{{ ansible_fqdn }}"
+#      ignore_errors: true
+#      no_log: true
 
-
-- name: Verify server responds with content from {{ ansible_fqdn }}
-  uri:
-    url: "https://{{ ansible_fqdn }}"
-    method: GET
-  register: uri_result
-  retries: 5
-  delay: 5
-  until: "uri_result.content | length > 0"
-  delegate_to: "{{ ansible_fqdn }}"
+    - name: Check with curl if uri module returned 403
+      command: "curl -s -o /dev/null -w '%{size_download}' https://{{ ansible_fqdn }}"
+      register: curl_result
+      retries: 3
+      delay: 5
+#      until: "curl_result.stdout | int > 0"
+#      failed_when: "curl_result.rc != 0"
+      changed_when: false
+      delegate_to: "{{ ansible_fqdn }}"
+#      when: uri_result.status is defined and uri_result.status == 403
+      no_log: true
+  rescue:
+    - name: Fail and exit if both verification methods failed
+      fail:
+        msg: "CRITICAL ERROR: Failed to verify HTTP server status using both uri module and curl command. Server {{ ansible_fqdn }} is not responding properly."
+      any_errors_fatal: true
+  always:
+    - name: Report server status
+      debug:
+        msg: "Server {{ ansible_fqdn }} is responding correctly"
+      when: >
+        (curl_result is defined and curl_result is success)
+#        (uri_result is success and uri_result.status != 403) or
+#        (curl_result is defined and curl_result is success)

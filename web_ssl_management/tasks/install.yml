@@ -20,16 +20,10 @@
   ansible.builtin.package:
     name: "{{ package_list }}"
     state: present
-  notify: daemon_reload
+  notify: Reload systemd daemon
 
 - name: Flush handlers to reload daemon immediately
   meta: flush_handlers
     
 - name: Include web server-specific installation tasks
   include_tasks: "{{ install_task_file }}"
-
-- name: Enable and start web server
-  service:
-    name: "{{ web_server_config[web_server].service_name }}"
-    state: started
-    enabled: true
