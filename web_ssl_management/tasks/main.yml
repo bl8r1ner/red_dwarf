@@ -10,8 +10,6 @@
     - name: Install web server and configure SSL
       ansible.builtin.include_tasks: install.yml
       when: ssl_action == 'install'
-      vars:
-        web_server: "{{ web_server_type }}"
 
     - name: Reinstall web server certificates
       ansible.builtin.include_tasks: reinstall.yml
@@ -24,4 +22,4 @@
 
 - name: Verify web server response
   ansible.builtin.include_tasks: "{{ web_server_config[web_server].check_response_task }}"
-    when: ssl_action in ['install', 'reinstall']
+  when: ssl_action in ['install', 'reinstall']

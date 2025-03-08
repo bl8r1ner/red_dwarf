@@ -10,23 +10,22 @@
     - "{{ temp_dir }}"
     - "{{ backup_dir }}"
 
-#- name: Copy certificate ZIP to remote host # This task is commented out to see if unarchive will hold remote exec
-#  copy:
-#    src: "{{ cert_zip }}"
-#    dest: "/tmp/certificates.zip"
-#    mode: '0600'
+- name: Copy certificate ZIP to remote host # This task is commented out to see if unarchive will hold remote exec
+  copy:
+    src: "{{ cert_zip }}"
+    dest: "{{ temp_zip_path }}"
+    mode: '0600'
 
 - name: Extract certificate ZIP
   unarchive:
-#    src: "/tmp/certificates.zip"
-    src: "{{ cert_zip }}"
+    src: "{{ temp_zip_path }}"
     dest: "{{ temp_dir }}"
-#    remote_src: true
+    remote_src: true
 
 - name: Find SSL files
   find:
     paths: "{{ temp_dir }}"
-    patterns: "{{ [cert_pattern, key_pattern, ca_cert_pattern] | join('|') }}"
+    patterns: "{{ [cert_pattern, key_pattern, ca_cert_pattern] }}"
     recurse: true
   register: ssl_files
 
@@ -42,7 +41,12 @@
       - cert_files | length == 1
       - key_files | length == 1
       - ca_cert_file | length == 1
-    fail_msg: "Expected 1 cert ({{ cert_files | length }}), 1 key ({{ key_files | length }}), 1 intermediate ({{ ca_cert_file | length }}) in {{ temp_dir }}"
+    fail_msg: >
+      Expected 1 cert (got {{ cert_files | length }}), 
+      1 key (got {{ key_files | length }}), 
+      1 intermediate (got {{ ca_cert_file | length }}) 
+      in {{ temp_dir }}. 
+      Found files: {{ ssl_files.files | map(attribute='path') | list }}
 
 - name: Copy Root CA to remote host
   copy:

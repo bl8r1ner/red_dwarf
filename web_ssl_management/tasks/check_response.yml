@@ -9,9 +9,6 @@
   uri:
     url: "https://{{ ansible_fqdn }}"
     method: GET
-    return_content: true
-    status_code: 200
-    validate_certs: false
   register: uri_result
   retries: 5
   delay: 5

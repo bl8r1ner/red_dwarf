@@ -5,22 +5,21 @@
 
 - name: Determine running web server
   ansible.builtin.set_fact:
-    web_server: >-
-      {{ web_server_type if ssl_action == 'install' else
-      'httpd' if 'httpd.service' in ansible_facts.services and ansible_facts.services['httpd.service'].state == 'running' else
+    running_web_server: >-
+      {{ 'httpd' if 'httpd.service' in ansible_facts.services and ansible_facts.services['httpd.service'].state == 'running' else
       'nginx' if 'nginx.service' in ansible_facts.services and ansible_facts.services['nginx.service'].state == 'running' else
       'unknown' }}
 
-- name: Validate web_server value # Overkill but I would like to be sure
-  ansible.builtin.assert:
-    that: web_server in ['httpd', 'nginx', 'unknown']
-    fail_msg: "web_server has an invalid value: {{ web_server }}. Expected 'httpd', 'nginx', or 'unknown'."
-  when: ssl_action in ['install', 'reinstall']
+- name: Set web_server variable based on ssl_action
+  ansible.builtin.set_fact:
+    web_server: >-
+      {{ web_server_type if ssl_action == 'install' and web_server_type in ['httpd', 'nginx'] else running_web_server }}
 
 - name: Set base web server-specific variables
-  set_fact:
-    ssl_conf: "{{ web_server_config[web_server].ssl_conf }}"
-    service_name: "{{ web_server_config[web_server].service_name }}"
+  ansible.builtin.set_fact:
     cert_dir: "{{ web_server_config[web_server].cert_dir }}"
     key_dir: "{{ web_server_config[web_server].key_dir }}"
+    service_name: "{{ web_server_config[web_server].service_name }}"
+    ssl_conf: "{{ web_server_config[web_server].ssl_conf }}"
   when: web_server != 'unknown'
+

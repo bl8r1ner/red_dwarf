@@ -23,8 +23,8 @@ root_ca_file_local: "{{ cert_base_path }}/Weizmann_Root_CA.pem"
 root_ca_file_remote: "{{ ca_trust_dir }}/Weizmann_Root_CA.pem"
 
 # Certificate file search patterns
-cert_pattern: "*weizmann.ac.il*.cer"
-key_pattern: "*.key"
+cert_pattern: "*weizmann*cer"
+key_pattern: "*weizmann*key"
 ca_cert_pattern: "CACert.cer"
 
 # Regex patterns for filtering certificate files

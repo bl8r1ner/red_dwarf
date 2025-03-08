@@ -13,22 +13,45 @@
     fail_msg: "For ssl_action 'install', web_server_type must be 'httpd' or 'nginx'. Got: {{ web_server_type }}"
   when: ssl_action == 'install'
 
-- name: Detect running web server for reinstall
+- name: Detect running web server
   ansible.builtin.include_tasks: detect_webserver.yml
 
-- name: Fail if web server is running when requested action is install
+- name: Debug variables
+  ansible.builtin.debug:
+    msg:
+      - "running_web_server: {{ running_web_server }}"
+      - "web_server: {{ web_server }}"
+      - "ssl_action: {{ ssl_action }}"
+      - "web_server_type: {{ web_server_type }}"
+
+- name: Fail if web server is running for install
   ansible.builtin.fail:
-    msg: "Cannot install {{ web_server_type }} because  {{ web_server_config[web_server].service_name }} is already running. Aborting install..."
+    msg: "Cannot install {{ web_server_type }} because {{ running_web_server }} is already running. Aborting install..."
   when:
     - ssl_action == 'install'
-    - web_server is defined
-    - web_server != 'unknown'
+    - running_web_server != 'unknown'
 
-- name: Fail if no web server is running when requested action is reinstall
+- name: Fail if no web server is running for reinstall
   ansible.builtin.fail:
-    msg: "No web server (httpd or nginx) is running. Aborting reinstall..."
+    msg: "No web server is running. Aborting reinstall..."
   when:
     - ssl_action == 'reinstall'
-    - web_server == 'unknown'
+    - running_web_server == 'unknown'
 
+- name: Fail if web server type does not match running server for reinstall
+  ansible.builtin.fail:
+    msg: "Running web server ({{ running_web_server }}) does not match expected type ({{ web_server_type }}). Aborting reinstall..."
+  when:
+    - ssl_action == 'reinstall'
+    - web_server_type is defined
+    - running_web_server != 'unknown'
+    - running_web_server != web_server_type
+
+- name: Fail if web_server_type is invalid for install
+  ansible.builtin.fail:
+    msg: "Invalid web_server_type: {{ web_server_type }}. Must be 'httpd' or 'nginx'."
+  when:
+    - ssl_action == 'install'
+    - web_server_type is defined
+    - web_server_type not in ['httpd', 'nginx']
 
