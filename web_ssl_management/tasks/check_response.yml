@@ -1,16 +1,16 @@
 ---
 - name: Verify HTTP server is responding
   block:
-#    - name: Check with uri module first
-#      uri:
-#        url: "https://{{ ansible_fqdn }}"
-#        method: GET
-#      register: uri_result
-#      retries: 3
-#      delay: 5
-#      delegate_to: "{{ ansible_fqdn }}"
-#      ignore_errors: true
-#      no_log: true
+    - name: Check with uri module first
+      uri:
+        url: "https://{{ ansible_fqdn }}"
+        method: GET
+      register: uri_result
+      retries: 3
+      delay: 5
+      delegate_to: "{{ ansible_fqdn }}"
+      ignore_errors: true
+      no_log: true
 
     - name: Check with curl if uri module returned 403
       command: "curl -s -o /dev/null -w '%{size_download}' https://{{ ansible_fqdn }}"
@@ -21,7 +21,7 @@
 #      failed_when: "curl_result.rc != 0"
       changed_when: false
       delegate_to: "{{ ansible_fqdn }}"
-#      when: uri_result.status is defined and uri_result.status == 403
+      when: uri_result.status is defined and uri_result.status == 403
       no_log: true
   rescue:
     - name: Fail and exit if both verification methods failed
@@ -33,6 +33,6 @@
       debug:
         msg: "Server {{ ansible_fqdn }} is responding correctly"
       when: >
-        (curl_result is defined and curl_result is success)
-#        (uri_result is success and uri_result.status != 403) or
 #        (curl_result is defined and curl_result is success)
+        (uri_result is success and uri_result.status != 403) or
+        (curl_result is defined and curl_result is success)

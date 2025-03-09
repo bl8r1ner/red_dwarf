@@ -27,6 +27,6 @@
     cert_dir: "{{ web_server_config[web_server].cert_dir }}"
     key_dir: "{{ web_server_config[web_server].key_dir }}"
     service_name: "{{ web_server_config[web_server].service_name }}"
-    ssl_conf: "{{ web_server_config[web_server].ssl_conf }}"
+    ssl_conf: "{{ web_server_config[web_server].ssl_conf_files }}"
   when: web_server != 'unknown'
 

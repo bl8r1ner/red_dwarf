@@ -1,0 +1,12 @@
+# web_ssl_management/tasks/reinstall.yml
+---
+- name: Set reinstallation variables
+  ansible.builtin.set_fact:
+    backup_task_file: "{{ web_server_config[web_server].backup_task }}"
+    reinstall_task_file: "{{ web_server_config[web_server].install_task }}"
+
+- name: Backup existing certificates
+  ansible.builtin.include_tasks: "{{ backup_task_file }}"
+
+- name: Reapply web server configuration
+  ansible.builtin.include_tasks: "{{ reinstall_task_file }}"

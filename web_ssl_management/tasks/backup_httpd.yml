@@ -1,26 +1,32 @@
 # - name: Backup existing httpd certificates
 ---
+
 - name: Set base web server-specific variables
   ansible.builtin.set_fact:
-    ssl_conf: "{{ web_server_config[web_server].ssl_conf }}"
-  vars:
-    web_server: "httpd"
+    ssl_conf_dir: "{{ web_server_config.httpd.ssl_conf_dir }}"
 
-- name: Read SSL config file
+- name: Find all SSL config files in directory
+  ansible.builtin.find:
+    paths: "{{ ssl_conf_dir }}"
+    patterns: "*.conf"
+    file_type: file
+  register: ssl_conf_files
+  when: ssl_conf_dir is defined
+
+- name: Read SSL config files
   ansible.builtin.slurp:
-    src: "{{ ssl_conf }}"
-  register: ssl_conf_content
-  when: ssl_conf is defined
+    src: "{{ item.path }}"
+  loop: "{{ ssl_conf_files.files | default([]) }}"
+  register: ssl_conf_contents
+  when: ssl_conf_files.files is defined and ssl_conf_files.files | length > 0
+  ignore_errors: true
 
-- name: Extract SSL file paths
+- name: Extract SSL file paths from all config files
   ansible.builtin.set_fact:
-    ssl_paths: "{{ (ssl_conf_content['content'] | b64decode) | regex_findall('(?m)^(SSLCertificateFile|SSLCertificateKeyFile)\\s+(.+)$') | map('last') | list }}"
-  when: ssl_conf_content is defined and ssl_conf_content['content'] is defined
-
-
-- name: Debug - Print extracted SSL paths
-  ansible.builtin.debug:
-    var: ssl_paths
+    ssl_paths: "{{ combined_content | regex_findall('(?m)^(SSLCertificateFile|SSLCertificateKeyFile)\\s+(.+)$') | map('last') | list }}"
+  vars:
+    combined_content: "{{ ssl_conf_contents.results | select('succeeded') | map(attribute='content') | map('b64decode') | join('\n') }}"
+  when: ssl_conf_contents.results is defined and ssl_conf_contents.results | select('succeeded') | list | length > 0
 
 - name: Set certificate and key paths
   ansible.builtin.set_fact:

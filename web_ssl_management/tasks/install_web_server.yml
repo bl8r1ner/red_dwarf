@@ -1,0 +1,29 @@
+# web_ssl_management/tasks/install.yml
+---
+
+- name: Validate and set installation variables
+  ansible.builtin.set_fact:
+    install_task_file: "{{ web_server_config[web_server].install_task }}"
+    package_list: "{{ web_server_config[web_server].packages }}"
+  when: 
+    - ssl_action == 'install'
+    - web_server is defined
+
+- name: Fail if web_server is undefined for install
+  ansible.builtin.fail:
+    msg: "Variable web_server must be defined for install action"
+  when: 
+    - ssl_action == 'install'
+    - web_server is not defined
+
+- name: Install web server packages
+  ansible.builtin.package:
+    name: "{{ package_list }}"
+    state: present
+  notify: Reload systemd daemon
+
+- name: Flush handlers to reload daemon immediately
+  meta: flush_handlers
+    
+- name: Include web server-specific installation tasks
+  include_tasks: "{{ install_task_file }}"

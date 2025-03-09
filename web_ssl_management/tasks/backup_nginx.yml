@@ -1,22 +1,27 @@
 # web_ssl_management/tasks/backup_nginx.yml
 ---
-- name: Find existing Nginx config directories on {{ ansible_fqdn }}
-  ansible.builtin.stat:
-    path: "{{ item | dirname }}"
-  loop: "{{ web_server_config.nginx.ssl_conf_files }}"
-  register: dir_stats
-
-- name: Identify existing Nginx SSL config files on {{ ansible_fqdn }}
+- name: Find Nginx SSL config files on {{ ansible_fqdn }}
   ansible.builtin.find:
-    paths: "{{ item.stat.path }}"
-    patterns: "{{ item.item | basename }}"
-  loop: "{{ dir_stats.results | selectattr('stat.exists', 'equalto', true) | list }}"
+    paths: "{{ item | dirname }}"
+    patterns: "{{ item | basename }}"
+  loop: "{{ web_server_config.nginx.ssl_conf_files }}"
   register: nginx_conf_files
+  when: web_server_config is defined and web_server_config.nginx is defined
 
-- name: Extract existing SSL file paths from Nginx configs on {{ ansible_fqdn }}
-  ansible.builtin.set_fact:
-    ssl_paths: "{{ nginx_conf_files.results | json_query('[].files[*].path') | flatten | unique }}"
+- name: Read Nginx SSL config files
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  loop: "{{ nginx_conf_files.results | json_query('[].files[*]') | flatten }}"
+  register: ssl_conf_contents
   when: nginx_conf_files.results | length > 0
+  ignore_errors: true
+
+- name: Extract SSL file paths from Nginx configs on {{ ansible_fqdn }}
+  ansible.builtin.set_fact:
+    ssl_paths: "{{ combined_content | regex_findall('(?m)^\\s*(ssl_certificate|ssl_certificate_key)\\s+([^;]+)') | map('last') | map('trim') | list | unique }}"
+  vars:
+    combined_content: "{{ ssl_conf_contents.results | select('succeeded') | map(attribute='content') | map('b64decode') | join('\n') }}"
+  when: ssl_conf_contents.results | select('succeeded') | list | length > 0
 
 - name: Set existing certificate and key paths
   ansible.builtin.set_fact:

@@ -1,8 +1,9 @@
 ---
 # Certificate management directories
 
-# Temporary directory for certificate extraction
+# Temporary setup for certificate extraction
 temp_dir: "/tmp/unzipped_certs"
+temp_zip_path: "/tmp/certificates.zip"
 
 # Directory for backing up existing certificates
 backup_dir: "/etc/ssl/my_ssl_bkp"
@@ -31,3 +32,6 @@ ca_cert_pattern: "CACert.cer"
 cert_regex: ".*\\.cer$"
 key_regex: ".*\\.key$"
 ca_cert_regex: ".*CACert\\.cer$"
+
+
+

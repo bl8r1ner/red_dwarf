@@ -8,11 +8,11 @@
       ansible.builtin.include_tasks: prepare_certs.yml
 
     - name: Install web server and configure SSL
-      ansible.builtin.include_tasks: install.yml
+      ansible.builtin.include_tasks: install_web_server.yml
       when: ssl_action == 'install'
 
     - name: Reinstall web server certificates
-      ansible.builtin.include_tasks: reinstall.yml
+      ansible.builtin.include_tasks: reinstall_web_server.yml
       when: ssl_action == 'reinstall'
 
   always:
