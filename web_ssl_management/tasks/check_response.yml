@@ -32,7 +32,5 @@
     - name: Report server status
       debug:
         msg: "Server {{ ansible_fqdn }} is responding correctly"
-      when: >
+      when: (uri_result is success and uri_result.status != 403) or (curl_result is defined and curl_result is success)
 #        (curl_result is defined and curl_result is success)
-        (uri_result is success and uri_result.status != 403) or
-        (curl_result is defined and curl_result is success)
