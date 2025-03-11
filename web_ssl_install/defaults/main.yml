@@ -1,0 +1,12 @@
+# File: web_ssl_install/defaults/main.yml
+---
+# Default values for web servers
+web_server_type: "" 
+cert_filename: ""  
+
+html_se_type: "httpd_sys_content_t"
+ssl_se_type: "cert_t"
+
+required_packages:
+  httpd: ["httpd", "mod_ssl"]
+  nginx: ["nginx"]

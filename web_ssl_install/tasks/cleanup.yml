@@ -1,0 +1,9 @@
+# File web_ssl_install/tasks/cleanup.yml
+---
+- name: Clean up temporary files on {{ ansible_fqdn }}
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ temp_dir }}"
+    - "{{ temp_zip_path }}"

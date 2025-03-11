@@ -1,0 +1,25 @@
+# SSL Configuration for httpd
+Listen 443 https
+<VirtualHost *:443>
+    ServerName {{ ansible_fqdn }}
+
+    SSLEngine on
+    SSLCertificateFile {{ cert_dir }}/{{ ansible_fqdn }}.crt
+    SSLCertificateKeyFile {{ key_dir }}/{{ ansible_fqdn }}.key
+    SSLCertificateChainFile {{ cert_dir }}/intermediate.crt
+
+    # SSL settings
+    SSLProtocol TLSv1.2 TLSv1.3
+    SSLCipherSuite EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
+    SSLHonorCipherOrder on
+    Protocols h2 http/1.1
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
+    # Document root
+    DocumentRoot "{{ httpd_document_root | default('/var/www/html') }}"
+    <Directory "{{ httpd_document_root | default('/var/www/html') }}">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>

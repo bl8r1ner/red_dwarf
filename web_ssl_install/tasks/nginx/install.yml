@@ -1,0 +1,35 @@
+# File web_ssl_install/tasks/nginx/install.yml
+---
+- name: Read certificate file on {{ ansible_fqdn }}
+  ansible.builtin.slurp:
+    src: "{{ cert_files[0].path }}"
+  register: cert_content
+
+- name: Read CA certificate file on {{ ansible_fqdn }}
+  ansible.builtin.slurp:
+    src: "{{ ca_cert_file[0].path }}"
+  register: ca_cert_content
+
+- name: Create full chain bundle on {{ ansible_fqdn }}
+  ansible.builtin.copy:
+    content: "{{ (cert_content['content'] | b64decode) + '\n' + (ca_cert_content['content'] | b64decode) }}"
+    dest: "{{ cert_dir }}/fullchain.pem"
+    setype: "cert_t"
+    mode: '0644'
+    owner: root
+    group: root
+
+- name: Install Nginx key on {{ ansible_fqdn }}
+  ansible.builtin.copy:
+    src: "{{ key_files[0].path }}"
+    dest: "{{ key_dir }}/{{ ansible_fqdn }}.key"
+    setype: "cert_t"
+    mode: '0600'
+    owner: root
+    group: root
+    remote_src: true
+  notify: Restart web server
+
+- name: Force handlers to restart {{ web_server_type }} now
+  ansible.builtin.meta: flush_handlers
+

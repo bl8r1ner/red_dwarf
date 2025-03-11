@@ -1,0 +1,6 @@
+---
+- name: Install web server with SSL
+  hosts: all
+  become: true
+  roles:
+    - web_ssl_install

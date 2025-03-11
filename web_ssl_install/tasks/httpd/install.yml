@@ -1,0 +1,57 @@
+
+# File web_ssl_install/tasks/httpd/install.yml
+---
+#- name: Debug variables before certificate installation
+#  ansible.builtin.debug:
+#    msg:
+#      - "cert_dir: {{ cert_dir }}"
+#      - "key_dir: {{ key_dir }}"
+#      - "cert_files[0].path: {{ cert_files[0].path }}"
+#      - "key_files[0].path: {{ key_files[0].path }}"
+#      - "ca_cert_file[0].path: {{ ca_cert_file[0].path }}"
+#      - "ansible_fqdn: {{ ansible_fqdn }}"
+#
+- name: Check if default SSL config exists
+  ansible.builtin.stat:
+    path: /etc/httpd/conf.d/ssl.conf
+  register: ssl_conf_stat
+
+- name: Disable default SSL configuration by renaming
+  ansible.builtin.copy:
+    src: /etc/httpd/conf.d/ssl.conf
+    dest: /etc/httpd/conf.d/ssl.conf.disabled
+    remote_src: true
+    force: no
+  when: ssl_conf_stat.stat.exists | default(false)
+  register: ssl_conf_disable
+
+- name: Remove original SSL config after renaming
+  ansible.builtin.file:
+    path: /etc/httpd/conf.d/ssl.conf
+    state: absent
+  when: ssl_conf_stat.stat.exists | default(false)
+
+- name: Install Apache certificates on {{ ansible_fqdn }}
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+    setype: "cert_t"
+    owner: root
+    group: root
+    remote_src: true
+  loop:
+    - { src: "{{ cert_files[0].path }}", dest: "{{ cert_dir }}/{{ ansible_fqdn }}.crt", mode: '0644' }
+    - { src: "{{ key_files[0].path }}", dest: "{{ key_dir }}/{{ ansible_fqdn }}.key", mode: '0600' }
+    - { src: "{{ ca_cert_file[0].path }}", dest: "{{ cert_dir }}/intermediate.crt", mode: '0644' }
+
+#- name: Deploy Apache SSL configuration
+#  ansible.builtin.template:
+#    src: httpd_ssl.conf.j2
+#    dest: "{{ ssl_conf_file }}"
+#    setype: "httpd_config_t"
+#    mode: '0644'
+#    owner: root
+#    group: root
+#  notify: Restart web server
+

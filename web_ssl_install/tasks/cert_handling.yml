@@ -1,0 +1,71 @@
+# File web_ssl_install/tasks/cert_handling.yml
+---
+- name: Ensure certificate directories exist on {{ ansible_fqdn }}
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+    owner: root
+    group: root
+  loop:
+    - { path: "{{ temp_dir }}", mode: '0700' }  
+    - { path: "{{ cert_dir }}", mode: '0755' }
+    - { path: "{{ key_dir }}", mode: '0700' }
+
+- name: Copy certificate ZIP to {{ ansible_fqdn }}
+  ansible.builtin.copy:
+    src: "{{ cert_zip }}"
+    dest: "{{ temp_zip_path }}"
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Extract certificate ZIP on {{ ansible_fqdn }}
+  ansible.builtin.unarchive:
+    src: "{{ temp_zip_path }}"
+    dest: "{{ temp_dir }}"
+    remote_src: true
+    mode: '0600'
+    owner: root
+    group: root
+  register: extract_result
+
+- name: Fail if extraction failed
+  ansible.builtin.fail:
+    msg: "Failed to extract certificate ZIP at {{ temp_zip_path }}"
+  when: extract_result.failed
+
+- name: Find SSL files in {{ temp_dir }} on {{ ansible_fqdn }}
+  ansible.builtin.find:
+    paths: "{{ temp_dir }}"
+    patterns: "{{ [cert_pattern, key_pattern, ca_cert_pattern] }}"
+    recurse: true
+  register: ssl_files
+
+- name: Set facts for SSL files on {{ ansible_fqdn }}
+  ansible.builtin.set_fact:
+    cert_files: "{{ ssl_files.files | selectattr('path', 'match', cert_regex) | rejectattr('path', 'match', ca_cert_regex) | list }}"
+    key_files: "{{ ssl_files.files | selectattr('path', 'match', key_regex) | list }}"
+    ca_cert_file: "{{ ssl_files.files | selectattr('path', 'match', ca_cert_regex) | list }}"
+
+- name: Validate SSL files found on {{ ansible_fqdn }}
+  ansible.builtin.assert:
+    that:
+      - cert_files | length == 1
+      - key_files | length == 1
+      - ca_cert_file | length == 1
+    fail_msg: "Expected 1 cert, 1 key, 1 CA in {{ temp_dir }}. Found: {{ ssl_files.files | map(attribute='path') | list }}"
+
+- name: Copy Root CA to {{ ansible_fqdn }}
+  ansible.builtin.copy:
+    src: "{{ root_ca_file_local }}"
+    dest: "{{ root_ca_file_remote }}"
+    mode: '0644'
+    owner: root
+    group: root
+    backup: true
+
+- name: Update CA trust on {{ ansible_fqdn }}
+  ansible.builtin.command:
+    cmd: update-ca-trust extract
+  changed_when: true

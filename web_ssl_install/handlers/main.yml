@@ -1,0 +1,13 @@
+# File web_ssl_install/handlers/main.yml
+---
+- name: Restart web server
+  ansible.builtin.service:
+    name: "{{ service_name }}"
+    state: restarted
+    enabled: true
+  listen: "Restart web server"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: "Reload systemd daemon"

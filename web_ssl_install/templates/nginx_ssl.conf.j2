@@ -1,0 +1,55 @@
+# SSL Configuration for Nginx
+#events {
+#    worker_connections 1024;
+#}
+#http {
+#	server {
+#	    listen       443 ssl http2;
+#	    listen       [::]:443 ssl http2;
+#	    server_name  {{ ansible_fqdn }};
+#	    root         /usr/share/nginx/html;
+#
+#	    ssl_certificate "{{ cert_dir }}/fullchain.pem";
+#	    ssl_certificate_key "{{ key_dir }}/{{ ansible_fqdn }}.key";
+#	    ssl_session_cache shared:SSL:1m;
+#	    ssl_session_timeout  10m;
+#	    ssl_ciphers PROFILE=SYSTEM;
+#	    ssl_prefer_server_ciphers on;
+#
+#	    include /etc/nginx/default.d/*.conf;
+#
+#	    error_page 404 /404.html;
+#	    location = /404.html {
+#	    }
+#
+#	    error_page 500 502 503 504 /50x.html;
+#	    location = /50x.html {
+#	    }
+#	}
+#}
+
+server {
+    listen       443 ssl http2;
+    listen       [::]:443 ssl http2;
+    server_name  {{ ansible_fqdn }};
+    root         "{{ nginx_document_root | default('/usr/share/nginx/html') }}";
+
+    ssl_certificate "{{ cert_dir }}/fullchain.pem";
+    ssl_certificate_key "{{ key_dir }}/{{ ansible_fqdn }}.key";
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384";
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:1m;
+    ssl_session_timeout  10m;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    include /etc/nginx/default.d/*.conf;
+
+    error_page 404 /404.html;
+    location = /404.html {
+    }
+
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+    }
+}

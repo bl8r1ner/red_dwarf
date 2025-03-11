@@ -1,0 +1,32 @@
+# File web_ssl_install/tasks/validate_web_server_response.yml
+---
+- name: Validate HTTPS response
+  block:
+    - name: Wait for SSL port on {{ ansible_fqdn }}
+      ansible.builtin.wait_for:
+        host: "{{ ansible_fqdn }}"
+        port: "{{ ssl_port | default(443) }}"
+        state: started
+        timeout: 30
+
+    - name: Check HTTPS availability
+      ansible.builtin.uri:
+        url: "https://{{ ansible_fqdn }}"
+        return_content: false
+        status_code: 200
+      register: https_response
+      no_log: true
+
+    - name: Debug success message
+      ansible.builtin.debug:
+        msg: "HTTPS validation successful for https://{{ ansible_fqdn }} - returned status {{ https_response.status }}"
+      when: https_response.status == 200
+
+  rescue:
+    - name: Debug failure message
+      ansible.builtin.debug:
+        msg: "HTTPS validation failed for https://{{ ansible_fqdn }} - status: {{ https_response.status | default('unreachable') }}, error: {{ https_response.msg | default('unknown') }}"
+      when: https_response.failed | default(true)
+
+
+

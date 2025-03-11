@@ -1,0 +1,16 @@
+# File web_ssl_install/tasks/main.yml
+---
+- name: Run preliminary checks
+  ansible.builtin.include_tasks: preliminary_validations.yml
+
+- block:
+    - name: Prepare SSL certificates and Root CA
+      ansible.builtin.include_tasks: cert_handling.yml
+    - name: Install web server and configure SSL
+      ansible.builtin.include_tasks: install_web_server.yml
+  always:
+    - name: Clean up temporary files
+      ansible.builtin.include_tasks: cleanup.yml
+
+- name: Verify web server response
+  ansible.builtin.include_tasks: validate_web_server_response.yml

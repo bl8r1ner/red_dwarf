@@ -1,0 +1,37 @@
+# File web_ssl_install/tasks/preliminary_validations.yml
+---
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Detect running web servers
+  ansible.builtin.set_fact:
+    running_services: "{{ ansible_facts.services | dict2items | selectattr('value.state', 'eq', 'running') | map(attribute='key') | list }}"
+
+- name: Validate web_server_type
+  ansible.builtin.assert:
+    that:
+      - "web_server_type in ['httpd', 'nginx']"
+    fail_msg: "web_server_type must be 'httpd' or 'nginx'. Got: {{ web_server_type }}"
+
+- name: Fail if conflicting web servers are running
+  ansible.builtin.fail:
+    msg: "Cannot install {{ web_server_type }}. Conflicting services running: {{ conflicting_services }}. Stop them and retry."
+  vars:
+    conflicting_services: "{{ running_services | intersect(['httpd.service', 'nginx.service']) }}"
+  when: conflicting_services | length > 0
+
+- name: Set web server variables for install
+  ansible.builtin.set_fact:
+    web_server: "{{ web_server_type }}"
+    cert_dir: "{{ web_server_config[web_server_type].cert_dir }}"
+    key_dir: "{{ web_server_config[web_server_type].key_dir }}"
+    service_name: "{{ web_server_config[web_server_type].service_name }}"
+    ssl_conf_file: "{{ web_server_config[web_server_type].ssl_conf_file }}"
+
+#- name: Debug detected state
+#  ansible.builtin.debug:
+#    msg:
+#      - "Installing Web Server: {{ web_server }}"
+#      - "Certificate Directory: {{ cert_dir }}"
+#      - "Key Directory: {{ key_dir }}"
+#  when: ansible_verbosity > 0 

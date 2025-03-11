@@ -1,0 +1,42 @@
+# File web_ssl_install/tasks/install_web_server.yml
+---
+- name: Validate and set installation variables
+  ansible.builtin.set_fact:
+    install_task_file: "{{ web_server_config[web_server].install_task }}"
+    package_list: "{{ web_server_config[web_server].packages }}"
+    document_root: "{{ web_server_config[web_server].document_root }}"
+
+- name: Install web server packages
+  ansible.builtin.package:
+    name: "{{ package_list }}"
+    state: present
+  register: package_result
+  notify: Reload systemd daemon
+
+- name: Include web server-specific installation tasks
+  ansible.builtin.include_tasks: "{{ install_task_file }}"
+
+- name: Enable SSL configuration on {{ ansible_fqdn }}
+  ansible.builtin.template:
+    src: "{{ web_server_type }}_ssl.conf.j2"
+    dest: "{{ ssl_conf_file }}"
+    setype: "{{ ssl_se_type }}"
+    mode: '0644'
+    owner: root
+    group: root
+    backup: true
+  notify: Restart web server
+
+- name: Create default index page
+  ansible.builtin.copy:
+    content: "Hello from {{ ansible_fqdn }}. Replace me."
+    dest: "{{ document_root }}/index.html"
+    setype: "{{ html_se_type }}"
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Restart web server
+
+- name: Force handlers to restart {{ web_server }} now
+  ansible.builtin.meta: flush_handlers
+
