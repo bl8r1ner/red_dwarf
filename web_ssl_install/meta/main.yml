@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  author: Emile Krantz
+  description: Install and configure web servers (Apache HTTPD or Nginx) with SSL certificates on RHEL systems.
+  company: WIS
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: RedHat
+      versions:
+        - 7
+        - 8
+        - 9
+  categories:
+    - web
+    - security
+  dependencies: []
+
+dependencies: []
