@@ -1,0 +1,78 @@
+- name: Check if logical volume exists
+  ansible.builtin.stat:
+    path: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+  register: lv_exists
+  changed_when: false
+
+- name: Format volume if new
+  ansible.builtin.filesystem:
+    fstype: "{{ fs_type }}"
+    dev: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+    force: no
+  when: lv_result.changed or not lv_exists.stat.exists
+  register: format_result
+
+- name: Log filesystem creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Filesystem {{ fs_type }} created on /dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+    log_priority: "info"
+    log_condition: "{{ format_result is changed }}"
+
+- name: Log filesystem creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create filesystem on /dev/{{ virtual_group_name }}/{{ logical_volume_name }}: {{ format_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ format_result is failed }}"
+
+- name: Ensure mount point exists
+  ansible.builtin.file:
+    path: "{{ mount_point }}"
+    state: directory
+    mode: '0755'
+  register: mount_point_result
+#  notify: Relabel filesystem context   # Removed unitl I resolve installation of ansible.posix collection
+
+- name: Log mount point creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Mount point {{ mount_point }} created or verified"
+    log_priority: "info"
+    log_condition: "{{ mount_point_result is changed }}"
+
+- name: Configure persistent mount
+  redhat.rhel_system_roles.mount:
+    path: "{{ mount_point }}"
+    src: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+    fstype: "{{ fs_type }}"
+    opts: "{{ fs_options }}"
+    state: mounted
+  register: mount_result
+  failed_when: false
+
+- name: Log mount configuration success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Successfully mounted {{ logical_volume_name }} at {{ mount_point }}"
+    log_priority: "info"
+    log_condition: "{{ mount_result is changed }}"
+
+- name: Log mount configuration failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to mount {{ logical_volume_name }} at {{ mount_point }}: {{ mount_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ mount_result is failed }}"
+
+- name: Verify mount success
+  ansible.builtin.assert:
+    that:
+      - mount_result is succeeded
+    fail_msg: "Mount operation failed!"
+    success_msg: "Successfully mounted {{ logical_volume_name }} at {{ mount_point }}"

@@ -1,0 +1,50 @@
+# roles/enterprise_lvm/tasks/partition.yml
+---
+- name: Check existing partitions
+  ansible.builtin.parted:
+    device: "{{ my_volume }}"
+    state: info
+  register: part_info
+  changed_when: false
+
+- name: Debug partition info
+  debug:
+    var: part_info.partitions
+
+
+- name: Create partition {{ my_volume }}
+  ansible.builtin.parted:
+    device: "{{ my_volume }}"
+    number: 1
+    flags: [ lvm ]
+    state: present
+    part_end: "{{ partition_size }}"
+    unit: GiB
+    part_type: primary
+  when: part_info.partitions | selectattr('num', 'equalto', 1) | list | length == 0
+  register: partition_result
+
+- name: Log partition creation outcome
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Partition {{ my_volume }} created or already exists"
+    log_priority: "info"
+    log_condition: "{{ partition_result is changed }}"
+  when: partition_result is changed
+
+- name: Log partition creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Partition 1 on {{ my_volume }} created successfully with size {{ partition_size }}"
+    log_priority: "info"
+    log_condition: "{{ partition_result is changed }}"
+
+- name: Log partition creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create partition 1 on {{ my_volume }}: {{ partition_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ partition_result is failed }}"

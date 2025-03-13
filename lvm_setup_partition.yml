@@ -1,0 +1,9 @@
+# lvm_setup_partition.yml
+---
+- name: Enterprise LVM Storage Management
+  hosts: all
+  become: true
+  gather_facts: true
+  
+  roles:
+    - role: enterprise_lvm

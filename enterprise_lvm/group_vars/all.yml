@@ -1,0 +1,9 @@
+# This file contains default settings. Override in AAP
+virtual_group_name: ""
+logical_volume_name: ""
+mount_point: ""
+my_volume: ""
+partition_size: "100%"
+fs_type: "xfs"
+fs_options: "defaults,noatime,nodiratime"
+lvm_pesize: "16M"

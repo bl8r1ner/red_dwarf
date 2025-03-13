@@ -1,0 +1,11 @@
+# roles/enterprise_lvm/defaults/main.yml
+---
+virtual_group_name: ""
+logical_volume_name: ""
+mount_point: ""
+my_volume: ""
+partition_size: "100%"
+fs_type: "xfs"
+fs_options: "defaults,noatime,nodiratime"
+lvm_pesize: "16M"
+selinux_type: "default_t"

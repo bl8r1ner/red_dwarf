@@ -1,0 +1,271 @@
+# roles/enterprise_lvm/defaults/main.yml
+---
+virtual_group_name: ""
+logical_volume_name: ""
+mount_point: ""
+my_volume: ""
+partition_size: "100%"
+fs_type: "xfs"
+fs_options: "defaults,noatime,nodiratime"
+lvm_pesize: "16M"
+selinux_type: "default_t"
+# roles/enterprise_lvm/handlers/main.yml
+#- name: Relabel filesystem context
+#  ansible.posix.sefcontext:
+#    target: "{{ mount_point }}(/.*)?"
+#    setype: "{{ selinux_type }}"
+#    state: present
+#  register: sefcontext_result
+#  when: ansible_selinux.status is defined and ansible_selinux.status == "enabled"
+
+#- name: Apply SELinux relabel
+#  ansible.builtin.command:
+#    cmd: restorecon -R {{ mount_point }}
+#  when: sefcontext_result is changed
+#  changed_when: true
+#  listen: Relabel filesystem context
+# roles/enterprise_lvm/meta/main.yml
+---
+galaxy_info:
+  role_name: enterprise_lvm
+  author: Emile Krantz
+  description: >
+    This role provides comprehensive management of LVM storage, including partitioning, volume group creation, logical volume creation, filesystem configuration, and mounting with SELinux context relabeling.
+  company: WIS
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: RedHat
+      versions:
+        - 8
+        - 9
+  categories:
+    - system
+    - storage
+  dependencies: []
+galaxy_tags:
+  - lvm
+  - storage
+  - filesystem
+  - system
+  - redhat
+  - enterprise
+- name: Check if logical volume exists
+  ansible.builtin.stat:
+    path: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+  register: lv_exists
+  changed_when: false
+
+- name: Format volume if new
+  ansible.builtin.filesystem:
+    fstype: "{{ fs_type }}"
+    dev: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+    force: no
+  when: lv_result.changed or not lv_exists.stat.exists
+  register: format_result
+
+- name: Log filesystem creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Filesystem {{ fs_type }} created on /dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+    log_priority: "info"
+    log_condition: "{{ format_result is changed }}"
+
+- name: Log filesystem creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create filesystem on /dev/{{ virtual_group_name }}/{{ logical_volume_name }}: {{ format_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ format_result is failed }}"
+
+- name: Ensure mount point exists
+  ansible.builtin.file:
+    path: "{{ mount_point }}"
+    state: directory
+    mode: '0755'
+#  notify: Relabel filesystem context   # Removed unitl I resolve installation of ansible.posix collection
+
+- name: Log mount point creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Mount point {{ mount_point }} created or verified"
+    log_priority: "info"
+    log_condition: "{{ mount_point_result is changed }}"
+
+- name: Configure persistent mount
+  redhat.rhel_system_roles.mount:
+    path: "{{ mount_point }}"
+    src: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+    fstype: "{{ fs_type }}"
+    opts: "{{ fs_options }}"
+    state: mounted
+  register: mount_result
+  failed_when: false
+
+- name: Log mount configuration success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Successfully mounted {{ logical_volume_name }} at {{ mount_point }}"
+    log_priority: "info"
+    log_condition: "{{ mount_result is changed }}"
+
+- name: Log mount configuration failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to mount {{ logical_volume_name }} at {{ mount_point }}: {{ mount_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ mount_result is failed }}"
+
+- name: Verify mount success
+  ansible.builtin.assert:
+    that:
+      - mount_result is succeeded
+    fail_msg: "Mount operation failed!"
+    success_msg: "Successfully mounted {{ logical_volume_name }} at {{ mount_point }}"
+# enterprise_lvm/tasks/log_to_journal.yml
+---
+- name: Log message to journal on remote host
+  community.general.syslogger:
+    msg: "{{ log_prefix }} {{ log_message }}"
+    ident: "ansible_lvm"
+    priority: "{{ log_priority | default('info') }}"
+    facility: "daemon"
+  when: log_condition | default(true)
+# roles/enterprise_lvm/tasks/lvm.yml
+---
+- name: Wait for partition device to be available
+  ansible.builtin.wait_for:
+    path: "{{ my_volume }}1"
+    timeout: 10
+  when: partition_result is defined and partition_result.changed
+
+- name: Manage volume group
+  community.general.lvg:
+    vg: "{{ virtual_group_name }}"
+    pvs: "{{ my_volume }}1"
+    pesize: "{{ lvm_pesize }}"
+    state: present
+  register: vg_result
+
+- name: Log volume group creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Volume group {{ virtual_group_name }} created or verified on {{ my_volume }}1"
+    log_priority: "info"
+    log_condition: "{{ vg_result is changed }}"
+
+- name: Log volume group creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create volume group {{ virtual_group_name }}: {{ vg_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ vg_result is failed }}"
+
+- name: Create logical volume
+  community.general.lvol:
+    vg: "{{ virtual_group_name }}"
+    lv: "{{ logical_volume_name }}"
+    size: "100%FREE"
+    shrink: no
+    state: present
+  register: lv_result
+
+- name: Log logical volume creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Logical volume {{ logical_volume_name }} created in {{ virtual_group_name }}"
+    log_priority: "info"
+    log_condition: "{{ lv_result is changed }}"
+
+- name: Log logical volume creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create logical volume {{ logical_volume_name }}: {{ lv_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ lv_result is failed }}"
+
+# roles/enterprise_lvm/tasks/main.yml
+---
+- name: Set fact for log prefix
+  ansible.builtin.set_fact:
+    log_prefix: "[LVM-SETUP] {{ ansible_hostname }}:"
+  tags: always
+
+- name: Validate storage device exists
+  ansible.builtin.assert:
+    that:
+      - "'{{ my_volume | basename }}' in ansible_facts.devices"
+    fail_msg: "Critical: Storage device {{ my_volume }} not detected!"
+    success_msg: "Validated storage device {{ my_volume }}"
+  tags: validation
+
+- name: Import partitioning tasks
+  ansible.builtin.import_tasks: partition.yml
+  tags: partitioning
+
+- name: Import LVM management tasks
+  ansible.builtin.import_tasks: lvm.yml
+  tags: lvm
+
+- name: Import filesystem tasks
+  ansible.builtin.import_tasks: filesystem.yml
+  tags: filesystem
+# roles/enterprise_lvm/tasks/partition.yml
+---
+- name: Check existing partitions
+  ansible.builtin.parted:
+    device: "{{ my_volume }}"
+    state: info
+  register: part_info
+  changed_when: false
+
+- name: Debug partition info
+  debug:
+    var: part_info.partitions
+
+
+- name: Create partition {{ my_volume }}
+  ansible.builtin.parted:
+    device: "{{ my_volume }}"
+    number: 1
+    flags: [ lvm ]
+    state: present
+    part_end: "{{ partition_size }}"
+    unit: GiB
+    part_type: primary
+  when: part_info.partitions | selectattr('num', 'equalto', 1) | list | length == 0
+  register: partition_result
+
+- name: Log partition creation outcome
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Partition {{ my_volume }} created or already exists"
+    log_priority: "info"
+    log_condition: "{{ partition_result is changed }}"
+  when: partition_result is changed
+
+- name: Log partition creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Partition 1 on {{ my_volume }} created successfully with size {{ partition_size }}"
+    log_priority: "info"
+    log_condition: "{{ partition_result is changed }}"
+
+- name: Log partition creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create partition 1 on {{ my_volume }}: {{ partition_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ partition_result is failed }}"

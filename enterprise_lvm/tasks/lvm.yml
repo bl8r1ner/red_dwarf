@@ -1,0 +1,57 @@
+# roles/enterprise_lvm/tasks/lvm.yml
+---
+- name: Wait for partition device to be available
+  ansible.builtin.wait_for:
+    path: "{{ my_volume }}1"
+    timeout: 10
+  when: partition_result is defined and partition_result.changed
+
+- name: Manage volume group
+  community.general.lvg:
+    vg: "{{ virtual_group_name }}"
+    pvs: "{{ my_volume }}1"
+    pesize: "{{ lvm_pesize }}"
+    state: present
+  register: vg_result
+
+- name: Log volume group creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Volume group {{ virtual_group_name }} created or verified on {{ my_volume }}1"
+    log_priority: "info"
+    log_condition: "{{ vg_result is changed }}"
+
+- name: Log volume group creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create volume group {{ virtual_group_name }}: {{ vg_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ vg_result is failed }}"
+
+- name: Create logical volume
+  community.general.lvol:
+    vg: "{{ virtual_group_name }}"
+    lv: "{{ logical_volume_name }}"
+    size: "100%FREE"
+    shrink: no
+    state: present
+  register: lv_result
+
+- name: Log logical volume creation success
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Logical volume {{ logical_volume_name }} created in {{ virtual_group_name }}"
+    log_priority: "info"
+    log_condition: "{{ lv_result is changed }}"
+
+- name: Log logical volume creation failure
+  ansible.builtin.include_tasks:
+    file: log_to_journal.yml
+  vars:
+    log_message: "Failed to create logical volume {{ logical_volume_name }}: {{ lv_result.msg | default('unknown error') }}"
+    log_priority: "error"
+    log_condition: "{{ lv_result is failed }}"
+

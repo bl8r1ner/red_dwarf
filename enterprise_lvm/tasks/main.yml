@@ -1,0 +1,37 @@
+# roles/enterprise_lvm/tasks/main.yml
+---
+- name: Set fact for log prefix
+  ansible.builtin.set_fact:
+    log_prefix: "[LVM-SETUP] {{ ansible_hostname }}:"
+  tags: always
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - my_volume | length > 0
+      - virtual_group_name | length > 0
+      - logical_volume_name | length > 0
+      - mount_point | length > 0
+    fail_msg: "Critical: my_volume, virtual_group_name, logical_volume_name, and mount_point must be defined in AAP job template or inventory!"
+    success_msg: "All required variables validated: {{ my_volume }}, {{ virtual_group_name }}, {{ logical_volume_name }}, {{ mount_point }}"
+  tags: validation
+
+- name: Validate storage device exists
+  ansible.builtin.assert:
+    that:
+      - "'{{ my_volume | basename }}' in ansible_facts.devices"
+    fail_msg: "Critical: Storage device {{ my_volume }} not detected on host!"
+    success_msg: "Validated storage device {{ my_volume }} exists"
+  tags: validation
+
+- name: Import partitioning tasks
+  ansible.builtin.import_tasks: partition.yml
+  tags: partitioning
+
+- name: Import LVM management tasks
+  ansible.builtin.import_tasks: lvm.yml
+  tags: lvm
+
+- name: Import filesystem tasks
+  ansible.builtin.import_tasks: filesystem.yml
+  tags: filesystem

@@ -1,0 +1,26 @@
+# roles/enterprise_lvm/meta/main.yml
+---
+galaxy_info:
+  role_name: enterprise_lvm
+  author: Emile Krantz
+  description: >
+    This role provides comprehensive management of LVM storage, including partitioning, volume group creation, logical volume creation, filesystem configuration, and mounting with SELinux context relabeling.
+  company: WIS
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: RedHat
+      versions:
+        - 8
+        - 9
+  categories:
+    - system
+    - storage
+  dependencies: []
+  galaxy_tags:
+    - lvm
+    - storage
+    - filesystem
+    - system
+    - redhat
+    - enterprise

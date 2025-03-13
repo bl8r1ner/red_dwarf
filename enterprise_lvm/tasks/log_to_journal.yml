@@ -1,0 +1,9 @@
+# enterprise_lvm/tasks/log_to_journal.yml
+---
+- name: Log message to journal on remote host
+  community.general.syslogger:
+    msg: "{{ log_prefix }} {{ log_message }}"
+    ident: "ansible_lvm"
+    priority: "{{ log_priority | default('info') }}"
+    facility: "daemon"
+  when: log_condition | default(true)

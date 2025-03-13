@@ -1,0 +1,15 @@
+# roles/enterprise_lvm/handlers/main.yml
+#- name: Relabel filesystem context
+#  ansible.posix.sefcontext:
+#    target: "{{ mount_point }}(/.*)?"
+#    setype: "{{ selinux_type }}"
+#    state: present
+#  register: sefcontext_result
+#  when: ansible_selinux.status is defined and ansible_selinux.status == "enabled"
+
+#- name: Apply SELinux relabel
+#  ansible.builtin.command:
+#    cmd: restorecon -R {{ mount_point }}
+#  when: sefcontext_result is changed
+#  changed_when: true
+#  listen: Relabel filesystem context
