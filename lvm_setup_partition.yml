@@ -1,9 +1,116 @@
-# lvm_setup_partition.yml
 ---
 - name: Enterprise LVM Storage Management
   hosts: all
   become: true
   gather_facts: true
-  
-  roles:
-    - role: enterprise_lvm
+  tasks:
+    - name: Validate storage device exists
+      ansible.builtin.assert:
+        that:
+          - ansible_devices[my_volume | basename] is defined
+        fail_msg: "Critical: Storage device {{ my_volume }} not detected!"
+        success_msg: "Validated storage device {{ my_volume }}"
+
+    - name: Check existing partitions
+      ansible.builtin.parted:
+        device: "{{ my_volume }}"
+        list: yes
+      register: part_info
+      changed_when: false
+      tags: validation
+
+    - name: Create LVM partition if needed
+      ansible.builtin.parted:
+        device: "{{ my_volume }}"
+        number: 1
+        flags: [ lvm ]
+        state: present
+        part_end: "{{ partition_size }}"
+        unit: GiB
+        part_type: primary
+      when: "'1' not in part_info.partitions"
+      tags: partitioning
+
+    - name: Manage volume group
+      community.general.lvg:
+        vg: "{{ virtual_group_name }}"
+        pvs: "{{ my_volume }}1"
+        pesize: "{{ lvm_pesize }}"
+        state: present
+      register: vg_result
+      tags: lvm
+
+    - name: Create logical volume
+      community.general.lvol:
+        vg: "{{ virtual_group_name }}"
+        lv: "{{ logical_volume_name }}"
+        size: "100%FREE"
+        force: yes
+        shrink: no
+        state: present
+      register: lv_result
+      tags: lvm
+
+    - name: Configure filesystem and mounting
+      block:
+        - name: Check existing filesystem
+          ansible.builtin.stat:
+            path: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+          register: fs_check
+          changed_when: false
+
+        - name: Format volume if new
+          ansible.builtin.filesystem:
+            fstype: "{{ fs_type }}"
+            dev: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+            force: no
+          when: not fs_check.stat.exists or lv_result.changed
+
+        - name: Ensure mount point exists
+          ansible.builtin.file:
+            path: "{{ mount_point }}"
+            state: directory
+            mode: '0755'
+            setype: "default_t"
+          notify: Relabel filesystem context
+
+        - name: Configure persistent mount
+          ansible.builtin.mount:
+            path: "{{ mount_point }}"
+            src: "/dev/{{ virtual_group_name }}/{{ logical_volume_name }}"
+            fstype: "{{ fs_type }}"
+            opts: "{{ fs_options }}"
+            state: mounted
+          register: mount_result
+
+        - name: Verify mount success
+          ansible.builtin.assert:
+            that:
+              - mount_result is succeeded
+            fail_msg: "Mount operation failed!"
+            success_msg: "Successfully mounted {{ logical_volume_name }} at {{ mount_point }}"
+
+      rescue:
+        - name: Emergency unmount
+          ansible.builtin.mount:
+            path: "{{ mount_point }}"
+            state: absent
+          ignore_errors: yes
+
+        - name: Critical failure alert
+          ansible.builtin.fail:
+            msg: "LVM configuration failed at {{ ansible_failed_task.name }}"
+
+  handlers:
+    - name: Relabel filesystem context
+      ansible.posix.sefcontext:
+        target: "{{ mount_point }}(/.*)?"
+        setype: "default_t"
+        reload: yes
+      notify: Apply SELinux relabel
+
+    - name: Apply SELinux relabel
+      ansible.builtin.command:
+        cmd: restorecon -R -v {{ mount_point }}
+      listen: Relabel filesystem context
+
