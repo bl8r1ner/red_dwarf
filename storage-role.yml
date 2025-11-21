@@ -1,0 +1,16 @@
+---
+- name: Modify disk size
+  hosts: all
+  become: true
+  vars:
+    storage_pools:
+      - name: "{{ storage_pool_name | default('rhel') }}"
+        disks:
+          - /dev/{{ storage_disk_letter }}
+        volumes:
+          - name: "{{ storage_lv_name }}"
+            size: "{{ storage_add_size | default('100%FREE') }}"
+            mount_point: "{{ storage_mountpoint }}"
+            fs_type: "{{ storage_fs_type | default xfs}}"
+            state: present
+...
